@@ -67,11 +67,17 @@ public class OntologyBuilder {
         JSONObject criteria = jsonObj.getJSONObject(key);
         String textblock = criteria.getString("textblock");
         /* Remove bullet points */
-        textblock = textblock.replaceAll("\\s+[1-9].", "");
+        textblock = textblock.replaceAll("\\s+[1-9]\\.", "");
         textblock = textblock.replaceAll("\\s+", " ");
         textblock = textblock.replace("¨Q", "<=");
+        textblock = textblock.replace("¡Ü", "<=");
         textblock = textblock.replace("¨R", ">=");
+        textblock = textblock.replace("¡Ý", ">=");
         int sepIndex = textblock.indexOf("Exclusion Criteria");
+        if(sepIndex == -1) {
+          this.DFS(criteria);
+          continue;
+        }
         String inclCri = textblock.substring(textblock.indexOf(':') + 2, 
             sepIndex);
         criteria.remove("textblock");
@@ -98,10 +104,12 @@ public class OntologyBuilder {
         criteria.put("Exclusion Criteria", new JSONArray(results));
       } else if (key.equals("textblock") || key.equals("description")) {
         String text = jsonObj.getString(key);
-        text = text.replaceAll("\\s+[1-9].", "");
+        text = text.replaceAll("\\s+[1-9]\\.", "");
         text = text.replaceAll("\\s+", " ");
         text = text.replace("¨Q", "<=");
+        text = text.replace("¡Ü", "<=");
         text = text.replace("¨R", ">=");
+        text = text.replace("¡Ý", ">=");
         String results = null;
         if(text.length() > MAX_LENGTH)
           results = this.overLimitRequest(text);
