@@ -53,7 +53,27 @@ public class MetaMap {
     return sb.toString();
   }
   
-  public String getResults(String filename, String args) {
+  public String getResults(String str, String args, boolean isFile) {
+    if(args == null) return null;
+    
+    String text = null;
+    if(isFile)
+      text = this.readFile(str);
+    else
+      text = str;
+    if(text == null || text.length() == 0) return null;
+    
+    this.submission.setField("Email_Address", email);
+    this.submission.setField("APIText", text);
+    this.submission.setField("KSOURCE", "1516");
+    String arguments = "--JSONf 2 -A ";
+    if(args != null)
+      arguments += args;
+    this.submission.setField("COMMAND_ARGS", arguments);
+    return this.postprocess(this.submission.handleSubmission());
+  }
+  
+  private String readFile(String filename) {
     StringBuilder sb = new StringBuilder();
     try(BufferedReader reader = new BufferedReader(new InputStreamReader(new
         FileInputStream(filename)))) {
@@ -68,15 +88,7 @@ public class MetaMap {
       e.printStackTrace();
       return null;
     }
-    
-    this.submission.setField("Email_Address", email);
-    this.submission.setField("APIText", sb.toString());
-    this.submission.setField("KSOURCE", "1516");
-    String arguments = "--JSONf 2 -A ";
-    if(args != null)
-      arguments += args;
-    this.submission.setField("COMMAND_ARGS", arguments);
-    return this.postprocess(this.submission.handleSubmission());
+    return sb.toString();
   }
   
   private boolean syntaxCheck(String inclusion, String exclusion) {
@@ -124,7 +136,7 @@ public class MetaMap {
     String opts = req.config("2017AA", "USAbase", null, null, null, null);
     try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
         FileOutputStream("results.json")))) {
-       String results = req.getResults(args[3], opts);
+       String results = req.getResults(args[3], opts, true);
        writer.write(results);
     } catch (RuntimeException ex) {
        System.err.println("");
