@@ -25,6 +25,7 @@ public class OntologyBuilder {
   
   private MetaMap request;
   private String opts;
+  private JSONObject annot = new JSONObject();
   
   public OntologyBuilder(String username, String password, String email) {
     this.request = new MetaMap(username, password, email);
@@ -37,11 +38,15 @@ public class OntologyBuilder {
     String xmlStr = this.loadXML(sourceName).replaceAll("\\s+[1-9]\\.", "");
     xmlStr = xmlStr.replaceAll("\\s+", " ");
     JSONObject xmlJSONObj = XML.toJSONObject(xmlStr);
-    /* Replace textblocks and descriptions with MetaMap output */
-    this.DFS(xmlJSONObj);
+
+    this.DFS(xmlJSONObj, null);
     try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
         FileOutputStream(outputName)))) {
        writer.write(xmlJSONObj.toString());
+    }
+    try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
+        FileOutputStream("annotated_" + outputName)))) {
+       writer.write(this.annot.toString());
     }
   }
   
@@ -61,10 +66,11 @@ public class OntologyBuilder {
     return null;
   }
   
-  private void DFS(JSONObject jsonObj) throws JSONException {
+  private void DFS(JSONObject jsonObj, String objKey) throws JSONException {
     Iterator<?> it = jsonObj.keys();
     while(it.hasNext()) {
       String key = (String) it.next();
+      if(key.equals("brief_summary")) continue;
       if(key.equals("criteria")) {
         JSONObject criteria = jsonObj.getJSONObject(key);
         String textblock = criteria.getString("textblock");
@@ -74,12 +80,11 @@ public class OntologyBuilder {
         textblock = textblock.replace("¡Ý", ">=");
         int sepIndex = textblock.indexOf("Exclusion Criteria");
         if(sepIndex == -1) {
-          this.DFS(criteria);
+          this.DFS(criteria, key);
           continue;
         }
         String inclCri = textblock.substring(textblock.indexOf(':') + 2, 
             sepIndex);
-        criteria.remove("textblock");
         String results = null;
         if(inclCri.length() > MAX_LENGTH) {
           results = this.overLimitRequest(inclCri);
@@ -88,7 +93,9 @@ public class OntologyBuilder {
         if(results == null) throw new JSONException("Fail to get MetaMap"
             + " response");
         
-        criteria.put("Inclusion Criteria", new JSONArray(results));
+        this.annot.put("criteria", new JSONObject());
+        this.annot.getJSONObject("criteria").put("Inclusion Criteria", new
+            JSONArray(results));
         
         String exclCri = textblock.substring(sepIndex);
         exclCri = exclCri.substring(exclCri.indexOf(':') + 2);
@@ -100,7 +107,8 @@ public class OntologyBuilder {
         if(results == null) throw new JSONException("Fail to get MetaMap "
             + "response");
         
-        criteria.put("Exclusion Criteria", new JSONArray(results));
+        this.annot.getJSONObject("criteria").put("Exclusion Criteria", new
+            JSONArray(results));
       } else if (key.equals("textblock") || key.equals("description")) {
         String text = jsonObj.getString(key);
         text = text.replace("¨Q", "<=");
@@ -114,18 +122,19 @@ public class OntologyBuilder {
           results = this.request.getResults(text, this.opts, false);
         if(results == null) throw new JSONException("Fail to get MetaMap"
             + " response");
-        jsonObj.put(key, new JSONArray(results));
+        this.annot.put(objKey, new JSONObject());
+        this.annot.getJSONObject(objKey).put(key, new JSONArray(results));
       } else if(jsonObj.get(key) instanceof JSONObject)
-        this.DFS(jsonObj.getJSONObject(key));
+        this.DFS(jsonObj.getJSONObject(key), key);
       else if(jsonObj.get(key) instanceof JSONArray)
-        this.DFS(jsonObj.getJSONArray(key));
+        this.DFS(jsonObj.getJSONArray(key), key);
     }
   }
   
-  private void DFS(JSONArray jsonArray) throws JSONException {
+  private void DFS(JSONArray jsonArray, String arrayKey) throws JSONException {
     for(int i = 0; i < jsonArray.length(); i++) {
       if(jsonArray.get(i) instanceof JSONObject)
-        this.DFS(jsonArray.getJSONObject(i));
+        this.DFS(jsonArray.getJSONObject(i), arrayKey);
       else return;
     }
   }
