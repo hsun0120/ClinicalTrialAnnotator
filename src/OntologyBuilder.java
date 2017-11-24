@@ -21,6 +21,7 @@ import org.json.XML;
  */
 public class OntologyBuilder {
   static final int MAX_LENGTH = 10000;
+  static final int BUF_SIZE = 5000;
   
   private MetaMap request;
   private String opts;
@@ -33,7 +34,8 @@ public class OntologyBuilder {
   
   public void build(String sourceName, String outputName) throws
   JSONException, IOException {
-    String xmlStr = this.loadXML(sourceName);
+    String xmlStr = this.loadXML(sourceName).replaceAll("\\s+[1-9]\\.", "");
+    xmlStr = xmlStr.replaceAll("\\s+", " ");
     JSONObject xmlJSONObj = XML.toJSONObject(xmlStr);
     /* Replace textblocks and descriptions with MetaMap output */
     this.DFS(xmlJSONObj);
@@ -66,9 +68,6 @@ public class OntologyBuilder {
       if(key.equals("criteria")) {
         JSONObject criteria = jsonObj.getJSONObject(key);
         String textblock = criteria.getString("textblock");
-        /* Remove bullet points */
-        textblock = textblock.replaceAll("\\s+[1-9]\\.", "");
-        textblock = textblock.replaceAll("\\s+", " ");
         textblock = textblock.replace("¨Q", "<=");
         textblock = textblock.replace("¡Ü", "<=");
         textblock = textblock.replace("¨R", ">=");
@@ -104,8 +103,6 @@ public class OntologyBuilder {
         criteria.put("Exclusion Criteria", new JSONArray(results));
       } else if (key.equals("textblock") || key.equals("description")) {
         String text = jsonObj.getString(key);
-        text = text.replaceAll("\\s+[1-9]\\.", "");
-        text = text.replaceAll("\\s+", " ");
         text = text.replace("¨Q", "<=");
         text = text.replace("¡Ü", "<=");
         text = text.replace("¨R", ">=");
@@ -134,32 +131,31 @@ public class OntologyBuilder {
   }
   
   private String overLimitRequest(String text) {
-    StringBuilder response = new StringBuilder();
+    StringBuilder response = new StringBuilder(MAX_LENGTH);
     StringBuilder sb = new StringBuilder();
-    String[] sentences = text.split(". ");
+    String[] sentences = text.split("(?<=\\. )");
     for(int i = 0; i < sentences.length; i++) {
-      int offset = (i == sentences.length - 1 ? 0 : 2);
-      String endChar = (offset == 0 ? "" : ". ");
-      if(sb.length() + sentences[i].length() + offset <= MAX_LENGTH)
-        sb.append(sentences[i] + endChar);
+      if(sb.length() + sentences[i].length() <= MAX_LENGTH)
+        sb.append(sentences[i]);
       else {
         String result = this.request.getResults(sb.toString(), this.opts,
             false);
         if(result == null) return null;
-        sb = new StringBuilder();
+        sb = new StringBuilder(BUF_SIZE);
         if(response.length() == 0 && result.length() > 0)
-          response.append(result.substring(0, result.length()) + ",");
+          response.append(result.substring(0, result.length() - 1) + ",");
         else if(result.length() > 0)
-          response.append(result.substring(1, result.length()) + ",");
-        if(i < sentences.length - 1) sb.append(sentences[i] + ". ");
+          response.append(result.substring(1, result.length() - 1) + ",");
+        sb.append(sentences[i]);
       }
       
       if(i == sentences.length - 1) {
-        String lastResponse = this.request.getResults(sentences[i],
+        String lastResponse = this.request.getResults(sb.toString(),
             this.opts, false);
         if(lastResponse == null) return null;
-        if(lastResponse.length() > 0)
+        if(lastResponse.length() > 0) {
           response.append(lastResponse.substring(1));
+        }
         else
           response.append(']');
       }
