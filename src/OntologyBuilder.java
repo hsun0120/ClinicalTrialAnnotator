@@ -74,10 +74,11 @@ public class OntologyBuilder {
       if(key.equals("criteria")) {
         JSONObject criteria = jsonObj.getJSONObject(key);
         String textblock = criteria.getString("textblock");
-        textblock = textblock.replace("¨Q", "<=");
-        textblock = textblock.replace("¡Ü", "<=");
-        textblock = textblock.replace("¨R", ">=");
-        textblock = textblock.replace("¡Ý", ">=");
+        textblock = textblock.replace("â‰¦", "<=");
+        textblock = textblock.replace("â‰¤", "<=");
+        textblock = textblock.replace("â‰§", ">=");
+        textblock = textblock.replace("â‰¥", ">=");
+        textblock = textblock.replace("Â®", "(R)");
         int sepIndex = textblock.indexOf("Exclusion Criteria");
         if(sepIndex == -1) {
           this.DFS(criteria, key);
@@ -111,10 +112,11 @@ public class OntologyBuilder {
             JSONArray(results));
       } else if (key.equals("textblock") || key.equals("description")) {
         String text = jsonObj.getString(key);
-        text = text.replace("¨Q", "<=");
-        text = text.replace("¡Ü", "<=");
-        text = text.replace("¨R", ">=");
-        text = text.replace("¡Ý", ">=");
+        text = text.replace("â‰¦", "<=");
+        text = text.replace("â‰¤", "<=");
+        text = text.replace("â‰§", ">=");
+        text = text.replace("â‰¥", ">=");
+        text = text.replace("Â®", "(R)");
         String results = null;
         if(text.length() > MAX_LENGTH)
           results = this.overLimitRequest(text);
@@ -142,7 +144,7 @@ public class OntologyBuilder {
   private String overLimitRequest(String text) {
     StringBuilder response = new StringBuilder(MAX_LENGTH);
     StringBuilder sb = new StringBuilder();
-    String[] sentences = text.split("(?<=\\. )");
+    String[] sentences = text.split("(?<=\\. ) | (?<=; )");
     for(int i = 0; i < sentences.length; i++) {
       if(sb.length() + sentences[i].length() <= MAX_LENGTH)
         sb.append(sentences[i]);
