@@ -17,20 +17,25 @@ import org.json.JSONObject;
 import org.json.XML;
 
 import edu.stanford.nlp.ling.CoreAnnotations.SentencesAnnotation;
+import edu.stanford.nlp.ling.CoreAnnotations.TokensAnnotation;
+import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.JSONOutputter;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.trees.Tree;
 import edu.stanford.nlp.trees.TreeCoreAnnotations.TreeAnnotation;
 import edu.stanford.nlp.util.CoreMap;
+import edu.stanford.nlp.util.IntPair;
+import edu.stanford.nlp.util.PropertiesUtils;
 
 public class GraphBuilder {
   private StanfordCoreNLP pipeline;
   
   public GraphBuilder() {
-    Properties props = new Properties();
-    props.setProperty("annotators", "tokenize, ssplit, pos, lemma, ner, parse");
-    this.pipeline = new StanfordCoreNLP(props);
+    this.pipeline = new StanfordCoreNLP(
+        PropertiesUtils.asProperties(
+            "annotators", "tokenize,ssplit,pos,lemma,parse",
+            "ssplit.boundaryTokenRegex", "\\.|;"));
   }
   
   public void build(String sourceName, String outputName) throws
@@ -103,9 +108,13 @@ public class GraphBuilder {
           Tree tree = sentence.get(TreeAnnotation.class);
           tree.setSpans();
           Iterator<Tree> iter = tree.iterator();
+          List<CoreLabel> map = sentence.get(TokensAnnotation.class);
           while(iter.hasNext()) {
             Tree node = iter.next();
-            System.out.println(node.getSpan());
+            IntPair span = node.getSpan();
+            int startIdx = span.getSource();
+            int endIdx = span.getTarget();
+            System.out.println("[" + map.get(startIdx).beginPosition() + " " + (map.get(endIdx).endPosition() - 1) + "]");
             System.out.println(node.value());
           }
         }
