@@ -72,5 +72,10 @@
   		<artifactId>slf4j-simple</artifactId>
   		<version>1.7.25</version>
   	</dependency>
+  	<dependency>
+  		<groupId>edu.stanford.nlp</groupId>
+  		<artifactId>stanford-corenlp</artifactId>
+  		<version>3.8.0</version>
+  	</dependency>
   </dependencies>
 </project>

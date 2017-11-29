@@ -21,7 +21,7 @@ import gov.nih.nlm.nls.skr.GenericObject;
  *
  */
 public class MetaMap {
-  private static String QUERY = "$.AllDocuments[0].Document.Utterances.*";
+  private static String QUERY = "$.AllDocuments[0].Document.*";
   
   private GenericObject submission; //Web API submission
   private String email;
@@ -116,19 +116,7 @@ public class MetaMap {
   private String postprocess(String raw) {
     String jsonStr = raw.substring(raw.indexOf('{'));
     jsonStr = JsonPath.parse(jsonStr).read(QUERY).toString();
-    JSONArray jsonArr = null;
-    try {
-      jsonArr = new JSONArray(jsonStr);
-      for(int i = 0; i < jsonArr.length(); i++) {
-        JSONObject jsonObj = jsonArr.getJSONObject(i);
-        jsonObj.remove("PMID");
-        jsonObj.remove("UttSection");
-      }
-    } catch (JSONException e) {
-      e.printStackTrace();
-      return null;
-    }
-    return jsonArr.toString();
+    return jsonStr;
   }
   
   public static void main(String[] args) {
