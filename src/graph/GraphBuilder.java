@@ -1,3 +1,4 @@
+package graph;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileInputStream;
@@ -14,6 +15,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.XML;
+import org.neo4j.driver.v1.AuthTokens;
+import org.neo4j.driver.v1.Driver;
+import org.neo4j.driver.v1.GraphDatabase;
 
 import edu.stanford.nlp.ling.CoreAnnotations.SentencesAnnotation;
 import edu.stanford.nlp.ling.CoreAnnotations.TokensAnnotation;
@@ -27,14 +31,16 @@ import edu.stanford.nlp.util.CoreMap;
 import edu.stanford.nlp.util.IntPair;
 import edu.stanford.nlp.util.PropertiesUtils;
 
-public class GraphBuilder {
+public class GraphBuilder implements AutoCloseable {
   private StanfordCoreNLP pipeline;
+  private final Driver driver;
   
-  public GraphBuilder() {
+  public GraphBuilder(String uri, String user, String password) {
     this.pipeline = new StanfordCoreNLP(
         PropertiesUtils.asProperties(
             "annotators", "tokenize,ssplit,pos,lemma,parse",
             "ssplit.boundaryTokenRegex", "\\.|;"));
+    this.driver = GraphDatabase.driver(uri, AuthTokens.basic(user, password));
   }
   
   public void build(String sourceName, String outputName) throws
@@ -157,12 +163,16 @@ public class GraphBuilder {
       else return;
     }
   }
+
+  @Override
+  public void close() throws Exception {
+    this.driver.close();
+  }
   
   public static void main(String args[]) {
-    GraphBuilder builder = new GraphBuilder();
-    try {
+    try (GraphBuilder builder = new GraphBuilder("localhost:7687", "neo4j", "neo4j")){
       builder.build(args[0], args[1]);
-    } catch (JSONException | IOException e) {
+    } catch (Exception e) {
       e.printStackTrace();
     }
   }
