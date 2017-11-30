@@ -1,4 +1,5 @@
 package graph;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileInputStream;
@@ -8,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
@@ -18,6 +20,8 @@ import org.json.XML;
 import org.neo4j.driver.v1.AuthTokens;
 import org.neo4j.driver.v1.Driver;
 import org.neo4j.driver.v1.GraphDatabase;
+import org.neo4j.driver.v1.Session;
+import static org.neo4j.driver.v1.Values.parameters;
 
 import edu.stanford.nlp.ling.CoreAnnotations.SentencesAnnotation;
 import edu.stanford.nlp.ling.CoreAnnotations.TokensAnnotation;
@@ -28,12 +32,14 @@ import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.trees.Tree;
 import edu.stanford.nlp.trees.TreeCoreAnnotations.TreeAnnotation;
 import edu.stanford.nlp.util.CoreMap;
-import edu.stanford.nlp.util.IntPair;
 import edu.stanford.nlp.util.PropertiesUtils;
 
 public class GraphBuilder implements AutoCloseable {
   private StanfordCoreNLP pipeline;
   private final Driver driver;
+  private String docId = null;
+  
+  private static int uid = 0;
   
   public GraphBuilder(String uri, String user, String password) {
     this.pipeline = new StanfordCoreNLP(
@@ -49,6 +55,8 @@ public class GraphBuilder implements AutoCloseable {
     xmlStr = xmlStr.replaceAll("\\s+", " ");
     JSONObject xmlJSONObj = XML.toJSONObject(xmlStr);
     JSONObject annot = new JSONObject();
+    this.docId = xmlJSONObj.getJSONObject("clinical_study").
+        getJSONObject("id_info").getString("nct_id");
 
     this.DFS(xmlJSONObj, null, annot);
     try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
@@ -109,19 +117,13 @@ public class GraphBuilder implements AutoCloseable {
             JSONObject(results));
         
         List<CoreMap> sentences = document.get(SentencesAnnotation.class);
+        int index = 0;
         for(CoreMap sentence: sentences) {
           Tree tree = sentence.get(TreeAnnotation.class);
           tree.setSpans();
-          Iterator<Tree> iter = tree.iterator();
           List<CoreLabel> map = sentence.get(TokensAnnotation.class);
-          while(iter.hasNext()) {
-            Tree node = iter.next();
-            IntPair span = node.getSpan();
-            int startIdx = span.getSource();
-            int endIdx = span.getTarget();
-            System.out.println("[" + map.get(startIdx).beginPosition() + " " + (map.get(endIdx).endPosition() - 1) + "]");
-            System.out.println(node.value());
-          }
+          this.buildTree(tree, map, index, "Inclusion Criteria");
+          index++;
         }
         
         String exclCri = textblock.substring(sepIndex);
@@ -169,8 +171,62 @@ public class GraphBuilder implements AutoCloseable {
     this.driver.close();
   }
   
+  private void buildTree(Tree root, List<CoreLabel> map, int index, String section) {
+    Iterator<Tree> it = root.iterator();
+    HashMap<Tree, String> idMap = new HashMap<>();
+    while(it.hasNext()) {
+      Tree curr = it.next();
+      String nodeId = this.createNode(curr, map, index, section);
+      idMap.put(curr, nodeId);
+      if(curr.value().equals("ROOT")) continue;
+      boolean rootEdge = curr.ancestor(1, root).value().equals("ROOT") ?
+          true : false;
+      this.createRelation(idMap.get(curr.ancestor(1, root)), nodeId, rootEdge);
+    }
+  }
+  
+  private String createNode(Tree node, List<CoreLabel> map, int index, String section) {
+    try (Session session = driver.session()) {
+      String nodeType = ":ParseNode";
+      if(node.isLeaf())
+        nodeType = ":TextNode";
+      int beginOffset = map.get(node.getSpan().getSource()).beginPosition();
+      int endOffset = map.get(node.getSpan().getTarget()).endPosition() - 1;
+      if(node.value().equals("ROOT"))
+        session.run("CREATE (n" + nodeType + ":" + "`" + node.value() + "`"
+      + " { section: " + "'" + section + "', " + "sentenceNum: " + "'" + index
+      + "', " + "DocID:" + " " + "'" + this.docId + "', " + "StartOffset: " +
+      "'" + beginOffset + "', " + "EndOffset: " + "'" + endOffset + "', " +
+      "uid: " + "'" + uid++ + "' })");
+      else if(!node.isLeaf())
+        session.run("CREATE (n" + nodeType + ":" + "`" + node.value() + "`" + 
+            " { StartOffset: " + "'" + beginOffset + "', " + "EndOffset: "
+            + "'" + endOffset + "', " + "uid: " + "'" + uid++ + "' })");
+      else
+        session.run("CREATE (n" + nodeType + " { TextValue: " + "'" +
+      node.value() + "', " + "StartOffset: " + "'" + beginOffset + "', " + "EndOffset: "
+            + "'" + endOffset + "', " + "uid: " + "'" + uid++ + "' })");
+    }
+    return uid + "";
+  }
+  
+  private void createRelation(String sourceID, String targetID, boolean rootEdge) {
+    try (Session session = driver.session()) {
+      if(rootEdge) {
+        String query = "MATCH (a),(b) " +
+      "WHERE a.uid = {source} AND b.uid = {target} " +
+            "CREATE (a)-[:RootEdge]->(b)";
+        session.run(query, parameters("source", sourceID, "target", targetID));
+      }
+      else
+        session.run("MATCH (a),(b) WHERE a.uid = " + "'" + sourceID + "' AND "
+            + "b.uid = " + "'" + targetID + "' " + 
+            "CREATE (a)-[:ParseEdge]->(b)");
+    }
+  }
+  
   public static void main(String args[]) {
-    try (GraphBuilder builder = new GraphBuilder("localhost:7687", "neo4j", "neo4j")){
+    try (GraphBuilder builder = new GraphBuilder("bolt://localhost:7687", "neo4j", "Fchgj10%")){
       builder.build(args[0], args[1]);
     } catch (Exception e) {
       e.printStackTrace();
