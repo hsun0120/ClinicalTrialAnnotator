@@ -80,6 +80,7 @@ public class OntologyBuilder {
         textblock = textblock.replace("≧", ">=");
         textblock = textblock.replace("≥", ">=");
         textblock = textblock.replace("®", "(R)");
+        textblock = textblock.replace("- ", "\n");
         int sepIndex = textblock.indexOf("Exclusion Criteria");
         if(sepIndex == -1) {
           this.DFS(criteria, key);
@@ -118,6 +119,7 @@ public class OntologyBuilder {
         text = text.replace("≧", ">=");
         text = text.replace("≥", ">=");
         text = text.replace("®", "(R)");
+        text = text.replace("- ", "\n");
         String results = null;
         if(text.length() > MAX_LENGTH)
           results = this.overLimitRequest(text);
