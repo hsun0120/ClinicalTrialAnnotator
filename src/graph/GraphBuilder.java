@@ -99,6 +99,7 @@ public class GraphBuilder implements AutoCloseable {
         textblock = textblock.replace("≧", ">=");
         textblock = textblock.replace("≥", ">=");
         textblock = textblock.replace("®", "(R)");
+        textblock = textblock.replace("- ", "\n");
         int sepIndex = textblock.indexOf("Exclusion Criteria");
         if(sepIndex == -1) {
           this.DFS(criteria, key, annot);
@@ -143,6 +144,7 @@ public class GraphBuilder implements AutoCloseable {
         text = text.replace("≧", ">=");
         text = text.replace("≥", ">=");
         text = text.replace("®", "(R)");
+        text = text.replace("- ", "\n");
         Annotation document = new Annotation(text);
         this.pipeline.annotate(document);
         String results = JSONOutputter.jsonPrint(document);
@@ -215,13 +217,13 @@ public class GraphBuilder implements AutoCloseable {
       if(rootEdge) {
         String query = "MATCH (a),(b) " +
       "WHERE a.uid = {source} AND b.uid = {target} " +
-            "CREATE (a)-[:RootEdge]->(b)";
+            "MERGE (a)-[:RootEdge]->(b)";
         session.run(query, parameters("source", sourceID, "target", targetID));
       }
       else
         session.run("MATCH (a),(b) WHERE a.uid = " + "'" + sourceID + "' AND "
             + "b.uid = " + "'" + targetID + "' " + 
-            "CREATE (a)-[:ParseEdge]->(b)");
+            "MERGE (a)-[:ParseEdge]->(b)");
     }
   }
   

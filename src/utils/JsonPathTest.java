@@ -111,7 +111,7 @@ public class JsonPathTest {
     JSONArray jarr = new JSONArray(res);
     try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
         FileOutputStream("phrases_" + args[0].substring(10))))) {
-      writer.write(test.filter(jarr, -800));
+      writer.write(test.filter(jarr, -750));
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     } catch (IOException e) {
