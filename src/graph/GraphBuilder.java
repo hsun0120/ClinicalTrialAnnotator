@@ -38,6 +38,7 @@ public class GraphBuilder implements AutoCloseable {
   private StanfordCoreNLP pipeline;
   private final Driver driver;
   private String docId = null;
+  private StringBuilder sb = new StringBuilder();
   
   private static int uid = 0;
   
@@ -132,11 +133,22 @@ public class GraphBuilder implements AutoCloseable {
         document = new Annotation(exclCri);
         this.pipeline.annotate(document);
         results = JSONOutputter.jsonPrint(document);
+        
         if(results == null) throw new JSONException("Fail to get CoreNLP "
             + "response");
         
         annot.getJSONObject("criteria").put("Exclusion Criteria", new
             JSONObject(results));
+        
+        sentences = document.get(SentencesAnnotation.class);
+        index = 0;
+        for(CoreMap sentence: sentences) {
+          Tree tree = sentence.get(TreeAnnotation.class);
+          tree.setSpans();
+          List<CoreLabel> map = sentence.get(TokensAnnotation.class);
+          this.buildTree(tree, map, index, "Exclusion Criteria");
+          index++;
+        }
       } else if (key.equals("textblock") || key.equals("description")) {
         String text = jsonObj.getString(key);
         text = text.replace("≦", "<=");
@@ -152,6 +164,17 @@ public class GraphBuilder implements AutoCloseable {
             + " response");
         annot.put(objKey, new JSONObject());
         annot.getJSONObject(objKey).put(key, new JSONObject(results));
+        
+        List<CoreMap> sentences = document.get(SentencesAnnotation.class);
+        int index = 0;
+        for(CoreMap sentence: sentences) {
+          Tree tree = sentence.get(TreeAnnotation.class);
+          tree.setSpans();
+          List<CoreLabel> map = sentence.get(TokensAnnotation.class);
+          this.buildTree(tree, map, index, objKey);
+          index++;
+        }
+        
       } else if(jsonObj.get(key) instanceof JSONObject)
         this.DFS(jsonObj.getJSONObject(key), key, annot);
       else if(jsonObj.get(key) instanceof JSONArray)
@@ -194,20 +217,33 @@ public class GraphBuilder implements AutoCloseable {
         nodeType = ":TextNode";
       int beginOffset = map.get(node.getSpan().getSource()).beginPosition();
       int endOffset = map.get(node.getSpan().getTarget()).endPosition() - 1;
-      if(node.value().equals("ROOT"))
+      if(node.value().equals("ROOT")) {
         session.run("CREATE (n" + nodeType + ":" + "`" + node.value() + "`"
       + " { section: " + "'" + section + "', " + "sentenceNum: " + "'" + index
       + "', " + "DocID:" + " " + "'" + this.docId + "', " + "StartOffset: " +
       "'" + beginOffset + "', " + "EndOffset: " + "'" + endOffset + "', " +
       "uid: " + "'" + uid++ + "' })");
-      else if(!node.isLeaf())
+        sb.append("CREATE (n" + nodeType + ":" + "`" + node.value() + "`"
+      + " { section: " + "'" + section + "', " + "sentenceNum: " + "'" + index
+      + "', " + "DocID:" + " " + "'" + this.docId + "', " + "StartOffset: " +
+      "'" + beginOffset + "', " + "EndOffset: " + "'" + endOffset + "', " +
+      "uid: " + "'" + uid + "' })");
+      }
+      else if(!node.isLeaf()) {
         session.run("CREATE (n" + nodeType + ":" + "`" + node.value() + "`" + 
             " { StartOffset: " + "'" + beginOffset + "', " + "EndOffset: "
             + "'" + endOffset + "', " + "uid: " + "'" + uid++ + "' })");
-      else
+        sb.append("CREATE (n" + nodeType + ":" + "`" + node.value() + "`" + 
+            " { StartOffset: " + "'" + beginOffset + "', " + "EndOffset: "
+            + "'" + endOffset + "', " + "uid: " + "'" + uid + "' })");
+      } else {
         session.run("CREATE (n" + nodeType + " { TextValue: " + "'" +
-      node.value() + "', " + "StartOffset: " + "'" + beginOffset + "', " + "EndOffset: "
+      node.value().replace("'", "") + "', " + "StartOffset: " + "'" + beginOffset + "', " + "EndOffset: "
             + "'" + endOffset + "', " + "uid: " + "'" + uid++ + "' })");
+        sb.append("CREATE (n" + nodeType + " { TextValue: " + "'" +
+      node.value().replace("'", "") + "', " + "StartOffset: " + "'" + beginOffset + "', " + "EndOffset: "
+            + "'" + endOffset + "', " + "uid: " + "'" + uid + "' })");
+      }
     }
     return uid + "";
   }
@@ -215,21 +251,38 @@ public class GraphBuilder implements AutoCloseable {
   private void createRelation(String sourceID, String targetID, boolean rootEdge) {
     try (Session session = driver.session()) {
       if(rootEdge) {
-        String query = "MATCH (a),(b) " +
-      "WHERE a.uid = {source} AND b.uid = {target} " +
-            "MERGE (a)-[:RootEdge]->(b)";
-        session.run(query, parameters("source", sourceID, "target", targetID));
+    	  session.run("MATCH (a),(b) WHERE a.uid = " + "'" + sourceID + "' AND "
+    	            + "b.uid = " + "'" + targetID + "' " + 
+    	            "MERGE (a)-[:RootEdge]->(b)");
+    	  sb.append("MATCH (a),(b) WHERE a.uid = " + "'" + sourceID + "' AND "
+    	            + "b.uid = " + "'" + targetID + "' " + 
+    	            "MERGE (a)-[:RootEdge]->(b)");
       }
       else
         session.run("MATCH (a),(b) WHERE a.uid = " + "'" + sourceID + "' AND "
             + "b.uid = " + "'" + targetID + "' " + 
             "MERGE (a)-[:ParseEdge]->(b)");
+      sb.append("MATCH (a),(b) WHERE a.uid = " + "'" + sourceID + "' AND "
+            + "b.uid = " + "'" + targetID + "' " + 
+            "MERGE (a)-[:ParseEdge]->(b)");
     }
+  }
+  
+  private void debugCypher() {
+	  try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
+			  FileOutputStream(this.docId + "_cypher.txt")))) {
+		  writer.write(this.sb.toString());
+	  } catch (FileNotFoundException e) {
+		  e.printStackTrace();
+	  } catch (IOException e) {
+		  e.printStackTrace();
+	  }
   }
   
   public static void main(String args[]) {
     try (GraphBuilder builder = new GraphBuilder("bolt://localhost:7687", "neo4j", "Fchgj10%")){
       builder.build(args[0], args[1]);
+      builder.debugCypher();
     } catch (Exception e) {
       e.printStackTrace();
     }
