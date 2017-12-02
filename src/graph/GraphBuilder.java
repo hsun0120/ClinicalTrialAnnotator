@@ -12,6 +12,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.Scanner;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -29,6 +31,10 @@ import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.JSONOutputter;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
+import edu.stanford.nlp.semgraph.SemanticGraph;
+import edu.stanford.nlp.semgraph.SemanticGraph.OutputFormat;
+import edu.stanford.nlp.semgraph.SemanticGraphCoreAnnotations.EnhancedPlusPlusDependenciesAnnotation;
+import edu.stanford.nlp.semgraph.SemanticGraphEdge;
 import edu.stanford.nlp.trees.Tree;
 import edu.stanford.nlp.trees.TreeCoreAnnotations.TreeAnnotation;
 import edu.stanford.nlp.util.CoreMap;
@@ -126,6 +132,10 @@ public class GraphBuilder implements AutoCloseable {
           List<CoreLabel> map = sentence.get(TokensAnnotation.class);
           this.buildTree(tree, map, index, "Inclusion Criteria");
           index++;
+          
+          SemanticGraph dependencies = sentence.get(EnhancedPlusPlusDependenciesAnnotation.class);
+          List<SemanticGraphEdge> list = dependencies.edgeListSorted();
+          this.buildDependency(list);
         }
         
         String exclCri = textblock.substring(sepIndex);
@@ -265,6 +275,39 @@ public class GraphBuilder implements AutoCloseable {
       sb.append("MATCH (a),(b) WHERE a.uid = " + "'" + sourceID + "' AND "
             + "b.uid = " + "'" + targetID + "' " + 
             "MERGE (a)-[:ParseEdge]->(b)");
+    }
+  }
+  
+  private void buildDependency(List<SemanticGraphEdge> edgeList) {
+    ListIterator<SemanticGraphEdge> it = edgeList.listIterator();
+    HashMap<Integer, Integer> map = new HashMap<>();
+    while(it.hasNext()) {
+      SemanticGraphEdge edge = it.next();
+      String source = edge.getSource().value();
+      int sourceIdx = edge.getSource().index();
+      if(!map.containsKey(new Integer(sourceIdx)))
+          map.put(sourceIdx, uid++);
+      String target = edge.getTarget().value();
+      int targetIdx = edge.getTarget().index();
+      if(!map.containsKey(new Integer(targetIdx)))
+        map.put(targetIdx, uid++);
+      String relation = edge.getRelation().toString();
+      try (Session session = driver.session()) {
+        session.run("MERGE (a:WordNode { word : '" + target + "', idx : '" + 
+            targetIdx + "', uid : '" + map.get(new Integer(targetIdx)).intValue()
+            + "' }) MERGE (b:WordNode { word: '" + source + "', idx : '" + 
+            sourceIdx + "', uid : '" + map.get(new Integer(sourceIdx)).intValue()
+            + "' }) MERGE (a)-[:`" + relation + "`]->(b)");
+      }
+      
+      if(!it.hasNext()) {
+        try (Session session = driver.session()) {
+          session.run("MERGE (a:WordNode { word : '" + source + "', idx : '" + 
+              sourceIdx + "', uid : '" + map.get(new Integer(sourceIdx)).intValue()
+              + "' }) MERGE (b:WordNode { word: 'ROOT', idx : '0', uid : '" + 
+              uid++ + "' }) MERGE (a)-[:`root`]->(b)");
+        }
+      }
     }
   }
   
