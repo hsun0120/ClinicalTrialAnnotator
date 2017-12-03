@@ -36,19 +36,21 @@ public class OntologyBuilder {
   
   public void build(String sourceName, String outputName) throws
   JSONException, IOException {
-    String xmlStr = this.loadXML(sourceName).replaceAll("\\s+[1-9]\\.", "");
-    xmlStr = xmlStr.replaceAll("\\s+", " ");
-    JSONObject xmlJSONObj = XML.toJSONObject(xmlStr);
+	  String xmlStr = this.loadXML(sourceName).replaceAll("\\s+[1-9]\\.", "");
+	  xmlStr = xmlStr.replaceAll("\\s+", " ");
+	  JSONObject xmlJSONObj = XML.toJSONObject(xmlStr);
 
-    this.DFS(xmlJSONObj, null);
-    try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
-        FileOutputStream(outputName)))) {
-       writer.write(xmlJSONObj.toString());
-    }
-    try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
-        FileOutputStream("annotated_" + outputName)))) {
-       writer.write(this.annot.toString());
-    }
+	  this.DFS(xmlJSONObj, null);
+
+	  try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
+			  FileOutputStream(outputName)))) {
+		  writer.write(xmlJSONObj.toString());
+	  }
+
+	  try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
+			  FileOutputStream("annotated_" + outputName)))) {
+		  writer.write(this.annot.toString());
+	  }
   }
   
   private String loadXML(String filename) {
@@ -80,7 +82,7 @@ public class OntologyBuilder {
         textblock = textblock.replace("≧", ">=");
         textblock = textblock.replace("≥", ">=");
         textblock = textblock.replace("®", "(R)");
-        textblock = textblock.replace("- ", "\n");
+        textblock = textblock.replace("- ", "\n\n");
         int sepIndex = textblock.indexOf("Exclusion Criteria");
         if(sepIndex == -1) {
           this.DFS(criteria, key);
@@ -119,7 +121,7 @@ public class OntologyBuilder {
         text = text.replace("≧", ">=");
         text = text.replace("≥", ">=");
         text = text.replace("®", "(R)");
-        text = text.replace("- ", "\n");
+        text = text.replace("- ", "\n\n");
         String results = null;
         if(text.length() > MAX_LENGTH)
           results = this.overLimitRequest(text);

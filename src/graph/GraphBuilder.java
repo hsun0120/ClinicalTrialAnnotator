@@ -2,6 +2,7 @@ package graph;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -54,7 +55,7 @@ public class GraphBuilder implements AutoCloseable {
     this.pipeline = new StanfordCoreNLP(
         PropertiesUtils.asProperties(
             "annotators", "tokenize,ssplit,pos,lemma,parse",
-            "ssplit.boundaryTokenRegex", "\\.|;"));
+            "ssplit.boundaryTokenRegex", "\\.|;|\n"));
     this.driver = GraphDatabase.driver(uri, AuthTokens.basic(user, password));
   }
   
@@ -198,7 +199,7 @@ public class GraphBuilder implements AutoCloseable {
     text = text.replace("≧", ">=");
     text = text.replace("≥", ">=");
     text = text.replace("®", "(R)");
-    text = text.replace("- ", "\n");
+    text = text.replace("- ", "\n\n");
     return text;
   }
   
@@ -273,10 +274,10 @@ public class GraphBuilder implements AutoCloseable {
         map.put(targetIdx, uid++);
       String relation = edge.getRelation().toString();
       try (Session session = driver.session()) {
-        session.run("MERGE (a:WordNode { word : '" + target + "', idx : '" + 
+        session.run("MERGE (a:WordNode { word : \"" + target + "\", idx : '" + 
             targetIdx + "', uid : '" + map.get(new Integer(targetIdx)).
-            intValue() + "' }) MERGE (b:WordNode { word: '" + source + 
-            "', idx : '" + sourceIdx + "', uid : '" + map.get(new 
+            intValue() + "' }) MERGE (b:WordNode { word: \"" + source + 
+            "\", idx : '" + sourceIdx + "', uid : '" + map.get(new 
                 Integer(sourceIdx)).intValue()+ "' }) MERGE (a)-[:`" +
             relation + "`]->(b)");
       }
@@ -297,7 +298,9 @@ public class GraphBuilder implements AutoCloseable {
   public static void main(String args[]) {
     try (GraphBuilder builder = new GraphBuilder("bolt://localhost:7687",
         "neo4j", "Fchgj10%")){
-      builder.build(args[0], args[1]);
+    	File dir = new File("xml");
+    	for(final File file : dir.listFiles())
+    		builder.build(file.getPath(), file.getName() + ".json");
     } catch (Exception e) {
       e.printStackTrace();
     }
