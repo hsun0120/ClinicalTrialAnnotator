@@ -84,12 +84,17 @@ public class OntologyBuilder {
         textblock = textblock.replace("®", "(R)");
         textblock = textblock.replace("- ", "\n\n");
         int sepIndex = textblock.indexOf("Exclusion Criteria");
-        if(sepIndex == -1) {
+        int inclIdx = textblock.indexOf("Inclusion Criteria");
+        if(inclIdx == -1 &&  sepIndex == -1) {
           this.DFS(criteria, key);
           continue;
         }
-        String inclCri = textblock.substring(textblock.indexOf(':') + 2, 
-            sepIndex);
+        if(inclIdx != -1) {
+          String inclCri = null;
+          if(sepIndex == -1)
+            inclCri = textblock.substring(textblock.indexOf(':') + 2);
+          else
+            inclCri = textblock.substring(textblock.indexOf(':') + 2, sepIndex);
         String results = null;
         if(inclCri.length() > MAX_LENGTH) {
           results = this.overLimitRequest(inclCri);
@@ -101,10 +106,13 @@ public class OntologyBuilder {
         this.annot.put("criteria", new JSONObject());
         this.annot.getJSONObject("criteria").put("Inclusion Criteria", new
             JSONArray(results));
+        }
+        
+        if(sepIndex == -1) continue;
         
         String exclCri = textblock.substring(sepIndex);
         exclCri = exclCri.substring(exclCri.indexOf(':') + 2);
-        results = null;
+        String results = null;
         if(exclCri.length() > MAX_LENGTH) {
           results = this.overLimitRequest(exclCri);
         } else

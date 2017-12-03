@@ -55,7 +55,8 @@ public class GraphBuilder implements AutoCloseable {
     this.pipeline = new StanfordCoreNLP(
         PropertiesUtils.asProperties(
             "annotators", "tokenize,ssplit,pos,lemma,parse",
-            "ssplit.boundaryTokenRegex", "\\.|;|\n"));
+            "ssplit.boundaryTokenRegex", "\\.|;",
+            "ssplit.newlineIsSentenceBreak", "two"));
     this.driver = GraphDatabase.driver(uri, AuthTokens.basic(user, password));
   }
   
@@ -114,29 +115,38 @@ public class GraphBuilder implements AutoCloseable {
         String textblock = criteria.getString("textblock");
         textblock = this.replaceIllegalChars(textblock);
         int sepIndex = textblock.indexOf("Exclusion Criteria");
-        if(sepIndex == -1) {
+        int inclIdx = textblock.indexOf("Inclusion Criteria");
+        if(inclIdx == -1 && sepIndex == -1) {
           this.DFS(criteria, key, annot);
           continue;
         }
-        String inclCri = textblock.substring(textblock.indexOf(':') + 2, 
-            sepIndex);
-        Annotation document = new Annotation(inclCri);
-        this.pipeline.annotate(document);
-        String results = JSONOutputter.jsonPrint(document);
-        if(results == null) throw new JSONException("Fail to get CoreNLP"
-            + " response");
         
-        annot.put("criteria", new JSONObject());
-        annot.getJSONObject("criteria").put("Inclusion Criteria", new
-            JSONObject(results));
+        if(inclIdx != -1) {
+          String inclCri = null;
+          if(sepIndex == -1)
+            inclCri = textblock.substring(textblock.indexOf(':') + 2);
+          else
+            inclCri = textblock.substring(textblock.indexOf(':') + 2, sepIndex);
+          Annotation document = new Annotation(inclCri);
+          this.pipeline.annotate(document);
+          String results = JSONOutputter.jsonPrint(document);
+          if(results == null) throw new JSONException("Fail to get CoreNLP"
+              + " response");
+
+          annot.put("criteria", new JSONObject());
+          annot.getJSONObject("criteria").put("Inclusion Criteria", new
+              JSONObject(results));
+
+          this.buildAllGraph(document, "Inclusion Criteria");
+        }
         
-        this.buildAllGraph(document, "Inclusion Criteria");
+        if(sepIndex == -1) continue;
         
         String exclCri = textblock.substring(sepIndex);
         exclCri = exclCri.substring(exclCri.indexOf(':') + 2);
-        document = new Annotation(exclCri);
+        Annotation document = new Annotation(exclCri);
         this.pipeline.annotate(document);
-        results = JSONOutputter.jsonPrint(document);
+        String results = JSONOutputter.jsonPrint(document);
         
         if(results == null) throw new JSONException("Fail to get CoreNLP "
             + "response");
@@ -297,7 +307,7 @@ public class GraphBuilder implements AutoCloseable {
   
   public static void main(String args[]) {
     try (GraphBuilder builder = new GraphBuilder("bolt://localhost:7687",
-        "neo4j", "Fchgj10%")){
+        "neo4j", "sdsc123")){
     	File dir = new File("xml");
     	for(final File file : dir.listFiles())
     		builder.build(file.getPath(), file.getName() + ".json");
