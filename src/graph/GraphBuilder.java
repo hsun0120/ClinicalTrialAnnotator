@@ -77,7 +77,7 @@ public class GraphBuilder implements AutoCloseable {
     this.docId = xmlJSONObj.getJSONObject("clinical_study").
         getJSONObject("id_info").getString("nct_id");
 
-    this.DFS(xmlJSONObj, null, annot);
+    this.DFS(xmlJSONObj, null, annot, null);
     try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
         FileOutputStream(outputName)))) {
        writer.write(xmlJSONObj.toString());
@@ -104,7 +104,7 @@ public class GraphBuilder implements AutoCloseable {
     return null;
   }
   
-  private void DFS(JSONObject jsonObj, String objKey, JSONObject annot) throws
+  private void DFS(JSONObject jsonObj, String objKey, JSONObject annot, Integer secIdx) throws
   JSONException, IOException {
     Iterator<?> it = jsonObj.keys();
     while(it.hasNext()) {
@@ -117,7 +117,7 @@ public class GraphBuilder implements AutoCloseable {
         int sepIndex = textblock.indexOf("Exclusion Criteria");
         int inclIdx = textblock.indexOf("Inclusion Criteria");
         if(inclIdx == -1 && sepIndex == -1) {
-          this.DFS(criteria, key, annot);
+          this.DFS(criteria, key, annot, null);
           continue;
         }
         
@@ -137,7 +137,7 @@ public class GraphBuilder implements AutoCloseable {
           annot.getJSONObject("criteria").put("Inclusion Criteria", new
               JSONObject(results));
 
-          this.buildAllGraph(document, "Inclusion Criteria");
+          this.buildAllGraph(document, "Inclusion Criteria", secIdx);
         }
         
         if(sepIndex == -1) continue;
@@ -153,7 +153,7 @@ public class GraphBuilder implements AutoCloseable {
         
         annot.getJSONObject("criteria").put("Exclusion Criteria", new
             JSONObject(results));
-        this.buildAllGraph(document, "Exclusion Criteria");
+        this.buildAllGraph(document, "Exclusion Criteria", secIdx);
       } else if (key.equals("textblock") || key.equals("description")) {
         String text = jsonObj.getString(key);
         text = this.replaceIllegalChars(text);
@@ -164,9 +164,9 @@ public class GraphBuilder implements AutoCloseable {
             + " response");
         annot.put(objKey, new JSONObject());
         annot.getJSONObject(objKey).put(key, new JSONObject(results));
-        this.buildAllGraph(document, objKey);
+        this.buildAllGraph(document, objKey, secIdx);
       } else if(jsonObj.get(key) instanceof JSONObject)
-        this.DFS(jsonObj.getJSONObject(key), key, annot);
+        this.DFS(jsonObj.getJSONObject(key), key, annot, null);
       else if(jsonObj.get(key) instanceof JSONArray)
         this.DFS(jsonObj.getJSONArray(key), key, annot);
     }
@@ -176,7 +176,7 @@ public class GraphBuilder implements AutoCloseable {
       throws JSONException, IOException {
     for(int i = 0; i < jsonArray.length(); i++) {
       if(jsonArray.get(i) instanceof JSONObject)
-        this.DFS(jsonArray.getJSONObject(i), arrayKey, annot);
+        this.DFS(jsonArray.getJSONObject(i), arrayKey, annot, new Integer(i));
       else return;
     }
   }
@@ -186,20 +186,20 @@ public class GraphBuilder implements AutoCloseable {
     this.driver.close();
   }
   
-  private void buildAllGraph(Annotation annot, String section) {
+  private void buildAllGraph(Annotation annot, String section, Integer blockIdx) {
     List<CoreMap> sentences = annot.get(SentencesAnnotation.class);
     int index = 0;
     for(CoreMap sentence: sentences) {
       Tree tree = sentence.get(TreeAnnotation.class);
       tree.setSpans();
       List<CoreLabel> map = sentence.get(TokensAnnotation.class);
-      this.buildTree(tree, map, index, section);
+      this.buildTree(tree, map, index, section, blockIdx);
       index++;
       
       SemanticGraph dependencies = sentence.get
           (EnhancedPlusPlusDependenciesAnnotation.class);
       List<SemanticGraphEdge> list = dependencies.edgeListSorted();
-      this.buildDependency(list, section, index);
+      this.buildDependency(list, section, index, blockIdx);
     }
   }
   
@@ -214,22 +214,23 @@ public class GraphBuilder implements AutoCloseable {
   }
   
   private void buildTree(Tree root, List<CoreLabel> map, int index, String
-      section) {
+      section, Integer blockIdx) {
     Iterator<Tree> it = root.iterator();
     HashMap<Tree, String> idMap = new HashMap<>();
     while(it.hasNext()) {
       Tree curr = it.next();
-      String nodeId = this.createNode(curr, map, index, section);
+      String nodeId = this.createNode(curr, map, index, section, blockIdx);
       idMap.put(curr, nodeId);
       if(curr.value().equals("ROOT")) continue;
       boolean rootEdge = curr.ancestor(1, root).value().equals("ROOT") ?
           true : false;
-      this.createRelation(idMap.get(curr.ancestor(1, root)), nodeId, rootEdge);
+      this.createRelation(Integer.parseInt(idMap.get(curr.ancestor(1, root))),
+          Integer.parseInt(nodeId), rootEdge);
     }
   }
   
   private String createNode(Tree node, List<CoreLabel> map, int index, String
-      section) {
+      section, Integer blockIdx) {
     int tmp = uid;
     try (Session session = driver.session()) {
       String nodeType = ":ParseNode";
@@ -237,39 +238,51 @@ public class GraphBuilder implements AutoCloseable {
         nodeType = ":TextNode";
       int beginOffset = map.get(node.getSpan().getSource()).beginPosition();
       int endOffset = map.get(node.getSpan().getTarget()).endPosition() - 1;
-      if(node.value().equals("ROOT"))
-        session.run("MERGE (n" + nodeType + ":" + "`" + node.value() + "`"
-      + " { section: " + "'" + section + "', " + "sentenceNum: " + "'" + index
-      + "', " + "DocID:" + " " + "'" + this.docId + "', " + "StartOffset: " +
-      "'" + beginOffset + "', " + "EndOffset: " + "'" + endOffset + "', " +
-      "uid: " + "'" + uid++ + "' })");
-      else if(!node.isLeaf())
-        session.run("MERGE (n" + nodeType + ":" + "`" + node.value() + "`" + 
-            " { StartOffset: " + "'" + beginOffset + "', " + "EndOffset: "
-            + "'" + endOffset + "', " + "uid: " + "'" + uid++ + "' })");
+      if(!node.isLeaf())
+        if(blockIdx == null)
+          session.run("MERGE (n" + nodeType + ":" + "`" + node.value() + "`"
+              + " { section: '" + section + "', " + "sentenceNum: " + index
+              + ", " + "DocID: " + "'" + this.docId + "', " + "StartOffset: " +
+              beginOffset + ", " + "EndOffset: " + endOffset + ", " + "uid: " +
+              uid++ + " })");
+        else
+          session.run("MERGE (n" + nodeType + ":" + "`" + node.value() + "`"
+              + " { section: '" + section + "', blockIndex: " + blockIdx
+              .intValue() + ", sentenceNum: " + index + ", " + "DocID: " + "'"
+              + this.docId + "', " + "StartOffset: " + beginOffset + ", " + 
+              "EndOffset: " + endOffset + ", " + "uid: " + uid++ + " })");
       else
-        session.run("MERGE (n" + nodeType + " { TextValue: " + "'" +
-      node.value().replace("'", "") + "', " + "StartOffset: " + "'" + 
-            beginOffset + "', " + "EndOffset: " + "'" + endOffset + "', "
-                + "" + "uid: " + "'" + uid++ + "' })");
+        if(blockIdx == null)
+          session.run("MERGE (n" + nodeType + " { TextValue: " + "\"" +
+              node.value() + "\", section: '" + section + "', " + "sentenceNum: "
+              + index + ", " + "DocID: " + "'" + this.docId + "', " + "StartOffset:"
+              + " " + beginOffset + ", " + "EndOffset: " + endOffset + ", "
+              + "" + "uid: " + uid++ + " })");
+        else
+          session.run("MERGE (n" + nodeType + " { TextValue: " + "\"" +
+              node.value() + "\", section: '" + section + "', blockIndex: " +
+              blockIdx.intValue() + ", sentenceNum: " + index + ", " +
+              "DocID: " + "'" + this.docId + "', " + "StartOffset: " +
+              beginOffset + ", " + "EndOffset: " + endOffset + ", "+ "uid: "
+              + uid++ + " })");
     }
     return tmp + "";
   }
   
-  private void createRelation(String sourceID, String targetID, boolean 
+  private void createRelation(int sourceID, int targetID, boolean 
       rootEdge) {
     try (Session session = driver.session()) {
       if(rootEdge)
-    	  session.run("MATCH (a) WHERE a.uid = '" + sourceID + "' MATCH (b) "
-    	      + "WHERE b.uid = '" + targetID + "' MERGE (a)-[:RootEdge]->(b)");
+    	  session.run("MATCH (a) WHERE a.uid = " + sourceID + " MATCH (b) "
+    	      + "WHERE b.uid = " + targetID + " MERGE (a)-[:RootEdge]->(b)");
       else
-        session.run("MATCH (a) WHERE a.uid = '" + sourceID + "' MATCH (b) "
-            + "WHERE b.uid = '" + targetID + "' MERGE (a)-[:ParseEdge]->(b)");
+        session.run("MATCH (a) WHERE a.uid = " + sourceID + " MATCH (b) "
+            + "WHERE b.uid = " + targetID + " MERGE (a)-[:ParseEdge]->(b)");
     }
   }
   
   private void buildDependency(List<SemanticGraphEdge> edgeList, String 
-      section, int index) {
+      section, int index, Integer blockIdx) {
     ListIterator<SemanticGraphEdge> it = edgeList.listIterator();
     HashMap<Integer, Integer> map = new HashMap<>();
     while(it.hasNext()) {
@@ -284,22 +297,50 @@ public class GraphBuilder implements AutoCloseable {
         map.put(targetIdx, uid++);
       String relation = edge.getRelation().toString();
       try (Session session = driver.session()) {
-        session.run("MERGE (a:WordNode { word : \"" + target + "\", idx : '" + 
-            targetIdx + "', uid : '" + map.get(new Integer(targetIdx)).
-            intValue() + "' }) MERGE (b:WordNode { word: \"" + source + 
-            "\", idx : '" + sourceIdx + "', uid : '" + map.get(new 
-                Integer(sourceIdx)).intValue()+ "' }) MERGE (a)-[:`" +
-            relation + "`]->(b)");
+        if(blockIdx == null)
+        session.run("MERGE (a:WordNode { word : \"" + target + "\", DocID : "
+            + "'"  + this.docId + "', section : '" + section + "', "
+            + "sentenceNum : " + index + ", idx : " + targetIdx + ", uid : " +
+            map.get(new Integer(targetIdx)).intValue() + " }) MERGE (b:WordNode"
+            + " { word: \"" + source + "\", DocID : '"  + this.docId + "',"
+            + " section : '" + section + "', " + "sentenceNum : " + 
+            index + ", idx : " + sourceIdx + ", uid : " + map.get(new 
+                Integer(sourceIdx)).intValue()+ " }) MERGE (a)-[:`" + relation 
+            + "`]->(b)");
+        else
+          session.run("MERGE (a:WordNode { word : \"" + target + "\", DocID : "
+              + "'"  + this.docId + "', section : '" + section + "', "
+              + "blockIndex : " + blockIdx.intValue() + ", sentenceNum : " 
+              + index + ", idx : " + targetIdx + ", uid : " + 
+              map.get(new Integer(targetIdx)).intValue() + " }) MERGE (b:WordNode"
+              + " { word: \"" + source + "\", DocID : '"  + this.docId + "',"
+              + " section : '" + section + "', blockIndex : " + 
+              blockIdx.intValue() + ", sentenceNum : " + index + ", idx : " + 
+              sourceIdx + ", uid : " + map.get(new Integer(sourceIdx)).
+              intValue() + " }) MERGE (a)-[:`" + relation + "`]->(b)");
       }
       
       if(!it.hasNext()) {
         try (Session session = driver.session()) {
-          session.run("MERGE (a:WordNode { word : '" + source + "', idx : '" + 
-              sourceIdx + "', uid : '" + map.get(new Integer(sourceIdx)).intValue()
-              + "' }) MERGE (b:WordNode { word: 'ROOT', DocID : ' " + 
-              this.docId + "', section : '" + section + "', sentenceNum : '"
-              + index + "', idx : '0', uid : '" + uid++ + 
-              "' }) MERGE (a)-[:root]->(b)");
+          if(blockIdx == null)
+            session.run("MERGE (a:WordNode { word : \"" + source + "\", DocID : "
+                + "'"  + this.docId + "', section : '" + section + "', "
+                + "sentenceNum : " + index + ", idx : " + sourceIdx + 
+                ", uid : " + map.get(new Integer(sourceIdx)).intValue() + 
+                " }) MERGE (b:WordNode { word: 'ROOT'," + " DocID : '" + 
+                this.docId + "', section : '" + section + "', sentenceNum : "
+                + index + ", idx : 0, uid : " + uid++ + " }) MERGE "
+                + "(a)-[:root]->(b)");
+          else
+            session.run("MERGE (a:WordNode { word : \"" + source + "\", DocID : "
+                + "'"  + this.docId + "', section : '" + section + "', "
+                + "blockIndex : " + blockIdx.intValue() + ", sentenceNum : " 
+                + index + ", idx : " + sourceIdx + ", uid : " + map.get(new 
+                    Integer(sourceIdx)).intValue() + " }) MERGE (b:WordNode "
+                    + "{ word: 'ROOT'," + " DocID : '" + this.docId + 
+                    "', section : '" + section + "', blockIndex : " + 
+                    blockIdx.intValue() + ", sentenceNum : " + index + ", idx :"
+                    + " 0, uid : " + uid++ + " }) MERGE (a)-[:root]->(b)");
         }
       }
     }
