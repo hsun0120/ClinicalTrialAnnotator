@@ -6,4 +6,5 @@
 
 #### Usage
 1. Modify main method of GraphBuilder, provide required neo4j authentication information.
-2. Input the source xml file and output json filename and execute the program.
+2. Create a directory named xml and place all xml files that need to be annoteated there.
+3. Run the program, converted json files are going to be created under the build path.
