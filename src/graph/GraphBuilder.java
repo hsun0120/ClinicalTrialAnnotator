@@ -188,18 +188,18 @@ public class GraphBuilder implements AutoCloseable {
   
   private void buildAllGraph(Annotation annot, String section, Integer blockIdx) {
     List<CoreMap> sentences = annot.get(SentencesAnnotation.class);
-    int index = 0;
+    int index = 0; //Sentence number
     for(CoreMap sentence: sentences) {
       Tree tree = sentence.get(TreeAnnotation.class);
       tree.setSpans();
       List<CoreLabel> map = sentence.get(TokensAnnotation.class);
       this.buildTree(tree, map, index, section, blockIdx);
-      index++;
       
       SemanticGraph dependencies = sentence.get
           (EnhancedPlusPlusDependenciesAnnotation.class);
       List<SemanticGraphEdge> list = dependencies.edgeListSorted();
       this.buildDependency(list, section, index, blockIdx);
+      index++;
     }
   }
   
@@ -217,9 +217,12 @@ public class GraphBuilder implements AutoCloseable {
       section, Integer blockIdx) {
     Iterator<Tree> it = root.iterator();
     HashMap<Tree, String> idMap = new HashMap<>();
+    int leafIndex = 1;
     while(it.hasNext()) {
       Tree curr = it.next();
-      String nodeId = this.createNode(curr, map, index, section, blockIdx);
+      String nodeId = this.createNode(curr, map, index, section, blockIdx,
+          leafIndex);
+      if(curr.isLeaf()) leafIndex++;
       idMap.put(curr, nodeId);
       if(curr.value().equals("ROOT")) continue;
       boolean rootEdge = curr.ancestor(1, root).value().equals("ROOT") ?
@@ -230,7 +233,7 @@ public class GraphBuilder implements AutoCloseable {
   }
   
   private String createNode(Tree node, List<CoreLabel> map, int index, String
-      section, Integer blockIdx) {
+      section, Integer blockIdx, int leafIndex) {
     int tmp = uid;
     try (Session session = driver.session()) {
       String nodeType = ":ParseNode";
@@ -253,18 +256,18 @@ public class GraphBuilder implements AutoCloseable {
               "EndOffset: " + endOffset + ", " + "uid: " + uid++ + " })");
       else
         if(blockIdx == null)
-          session.run("MERGE (n" + nodeType + " { TextValue: " + "\"" +
+          session.run("MERGE (n" + nodeType + " { TextValue: " + "\"" + 
               node.value() + "\", section: '" + section + "', " + "sentenceNum: "
               + index + ", " + "DocID: " + "'" + this.docId + "', " + "StartOffset:"
               + " " + beginOffset + ", " + "EndOffset: " + endOffset + ", "
-              + "" + "uid: " + uid++ + " })");
+              + "" + "uid: " + uid++ + ", idx: " + leafIndex++ +" })");
         else
           session.run("MERGE (n" + nodeType + " { TextValue: " + "\"" +
               node.value() + "\", section: '" + section + "', blockIndex: " +
               blockIdx.intValue() + ", sentenceNum: " + index + ", " +
               "DocID: " + "'" + this.docId + "', " + "StartOffset: " +
               beginOffset + ", " + "EndOffset: " + endOffset + ", "+ "uid: "
-              + uid++ + " })");
+              + uid++ + ", idx: " + leafIndex++ +" })");
     }
     return tmp + "";
   }
