@@ -82,6 +82,8 @@ public class OntologyBuilder {
         textblock = textblock.replace("≧", ">=");
         textblock = textblock.replace("≥", ">=");
         textblock = textblock.replace("®", "(R)");
+        textblock = textblock.replace("³", "^3");
+        textblock = textblock.replace("²", "^2");
         textblock = textblock.replace("- ", "\n\n");
         int sepIndex = textblock.indexOf("Exclusion Criteria");
         int inclIdx = textblock.indexOf("Inclusion Criteria");
@@ -129,6 +131,8 @@ public class OntologyBuilder {
         text = text.replace("≧", ">=");
         text = text.replace("≥", ">=");
         text = text.replace("®", "(R)");
+        text = text.replace("³", "^3");
+        text = text.replace("²", "^2");
         text = text.replace("- ", "\n\n");
         String results = null;
         if(text.length() > MAX_LENGTH)

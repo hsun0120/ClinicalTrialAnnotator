@@ -210,6 +210,8 @@ public class GraphBuilder implements AutoCloseable {
     text = text.replace("≧", ">=");
     text = text.replace("≥", ">=");
     text = text.replace("®", "(R)");
+    text = text.replace("³", "^3");
+    text = text.replace("²", "^2");
     text = text.replace("- ", "\n\n");
     return text;
   }
