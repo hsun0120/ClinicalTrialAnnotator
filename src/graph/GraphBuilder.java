@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -218,10 +219,11 @@ public class GraphBuilder implements AutoCloseable {
     Iterator<Tree> it = root.iterator();
     HashMap<Tree, String> idMap = new HashMap<>();
     int leafIndex = 1;
+    AtomicInteger prevUid = new AtomicInteger(-1);
     while(it.hasNext()) {
       Tree curr = it.next();
       String nodeId = this.createNode(curr, map, index, section, blockIdx,
-          leafIndex);
+          leafIndex, prevUid);
       if(curr.isLeaf()) leafIndex++;
       idMap.put(curr, nodeId);
       if(curr.value().equals("ROOT")) continue;
@@ -233,7 +235,7 @@ public class GraphBuilder implements AutoCloseable {
   }
   
   private String createNode(Tree node, List<CoreLabel> map, int index, String
-      section, Integer blockIdx, int leafIndex) {
+      section, Integer blockIdx, int leafIndex, AtomicInteger prevUid) {
     int tmp = uid;
     try (Session session = driver.session()) {
       String nodeType = ":ParseNode";
@@ -254,7 +256,7 @@ public class GraphBuilder implements AutoCloseable {
               .intValue() + ", sentenceNum: " + index + ", " + "DocID: " + "'"
               + this.docId + "', " + "StartOffset: " + beginOffset + ", " + 
               "EndOffset: " + endOffset + ", " + "uid: " + uid++ + " })");
-      else
+      else {
         if(blockIdx == null)
           session.run("MERGE (n" + nodeType + " { TextValue: " + "\"" + 
               node.value() + "\", section: '" + section + "', " + "sentenceNum: "
@@ -268,6 +270,11 @@ public class GraphBuilder implements AutoCloseable {
               "DocID: " + "'" + this.docId + "', " + "StartOffset: " +
               beginOffset + ", " + "EndOffset: " + endOffset + ", "+ "uid: "
               + uid++ + ", idx: " + leafIndex++ +" })");
+        if(prevUid.intValue() >= 0) 
+          session.run("MATCH (a" + nodeType + "{uid: " + prevUid + "}), (b" + 
+              nodeType + "{uid: " + tmp + "}) MERGE (a)-[:NEXT]->(b)");
+        prevUid.set(tmp);
+      }
     }
     return tmp + "";
   }
@@ -346,6 +353,17 @@ public class GraphBuilder implements AutoCloseable {
                     + " 0, uid : " + uid++ + " }) MERGE (a)-[:root]->(b)");
         }
       }
+    }
+    
+    Iterator<Integer> iter = map.keySet().iterator();
+    while(iter.hasNext()) {
+      Integer idx = iter.next();
+      if(map.containsKey(new Integer(idx.intValue() + 1)))
+        try (Session session = driver.session()) {
+          session.run("MATCH (a:WordNode {uid: " + map.get(idx).intValue() +
+              "}), (b:WordNode {uid: " + map.get(new Integer(idx.intValue() + 
+                  1)).intValue() + "}) MERGE (a)-[:NEXT]->(b)");
+        }
     }
   }
   
