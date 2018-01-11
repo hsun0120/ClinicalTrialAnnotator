@@ -71,6 +71,7 @@ public class GraphBuilder implements AutoCloseable {
    */
   public void build(String sourceName, String outputName) throws
   JSONException, IOException {
+    System.out.println("Converting file to JSON: " + sourceName);
     String xmlStr = this.loadXML(sourceName).replaceAll("\\s+[1-9]\\.", "");
     xmlStr = xmlStr.replaceAll("\\s+", " ");
     JSONObject xmlJSONObj = XML.toJSONObject(xmlStr);
@@ -122,7 +123,7 @@ public class GraphBuilder implements AutoCloseable {
           continue;
         }
         
-        if(inclIdx != -1) {
+        if(inclIdx != -1 && textblock.indexOf(':') + 2 < textblock.length()) {
           String inclCri = null;
           if(sepIndex == -1)
             inclCri = textblock.substring(textblock.indexOf(':') + 2);
@@ -144,6 +145,7 @@ public class GraphBuilder implements AutoCloseable {
         if(sepIndex == -1) continue;
         
         String exclCri = textblock.substring(sepIndex);
+        if(exclCri.indexOf(':') + 2 > exclCri.length()) continue;
         exclCri = exclCri.substring(exclCri.indexOf(':') + 2);
         Annotation document = new Annotation(exclCri);
         this.pipeline.annotate(document);
