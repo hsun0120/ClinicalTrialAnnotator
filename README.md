@@ -15,7 +15,7 @@ This program takes 5 command line arguments: UTS account name, password, email, 
 
 ### GraphBuilder
 1. Modify main method of GraphBuilder, provide required neo4j authentication information.
-2. Create a directory named xml and place all xml files that need to be annoteated there.
+2. Create a directory named xml and place all xml files that need to be annotated there.
 3. Run the program, converted json files are going to be created under the build path.
 
 ## Typical Issues
