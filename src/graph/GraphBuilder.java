@@ -162,8 +162,16 @@ public class GraphBuilder implements AutoCloseable {
         this.buildAllGraph(document, "Exclusion Criteria", secIdx);
         
         /* Check other criteria (not a very good solution) */
-        if(inclIdx != 0) {
-          String otherCri = textblock.substring(0, inclIdx);
+        int otherIdx = 0;
+        if(inclIdx > 0 && sepIndex == -1)
+          otherIdx = inclIdx;
+        else if(sepIndex > 0 && inclIdx == -1)
+          otherIdx = sepIndex;
+        else
+          otherIdx = inclIdx < sepIndex ? inclIdx : sepIndex;
+        
+        if(otherIdx > 0) {
+          String otherCri = textblock.substring(0, otherIdx);
           Annotation doc = new Annotation(otherCri);
           this.pipeline.annotate(doc);
           String res = JSONOutputter.jsonPrint(document);
