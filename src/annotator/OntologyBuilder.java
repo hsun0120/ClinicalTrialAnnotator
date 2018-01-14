@@ -1,4 +1,5 @@
 package annotator;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileInputStream;
@@ -87,10 +88,14 @@ public class OntologyBuilder {
         textblock = textblock.replace("- ", "\n\n");
         int sepIndex = textblock.indexOf("Exclusion Criteria");
         int inclIdx = textblock.indexOf("Inclusion Criteria");
-        if(inclIdx == -1 &&  sepIndex == -1) {
+        
+        if(inclIdx == -1 && sepIndex == -1) {
           this.DFS(criteria, key);
           continue;
         }
+        
+        this.annot.put("criteria", new JSONObject());
+        
         if(inclIdx != -1) {
           String inclCri = null;
           if(sepIndex == -1)
@@ -105,7 +110,6 @@ public class OntologyBuilder {
         if(results == null) throw new JSONException("Fail to get MetaMap"
             + " response");
         
-        this.annot.put("criteria", new JSONObject());
         this.annot.getJSONObject("criteria").put("Inclusion Criteria", new
             JSONArray(results));
         }
@@ -124,6 +128,21 @@ public class OntologyBuilder {
         
         this.annot.getJSONObject("criteria").put("Exclusion Criteria", new
             JSONArray(results));
+        
+        /* Check other criteria (not a very good solution) */
+        if(inclIdx != 0) {
+          String otherCri = textblock.substring(0, inclIdx);
+          String res = null;
+          if(otherCri.length() > MAX_LENGTH) {
+            res = this.overLimitRequest(otherCri);
+          } else
+            res = this.request.getResults(otherCri, this.opts, false);
+          if(res == null) throw new JSONException("Fail to get MetaMap "
+              + "response");
+          
+          this.annot.getJSONObject("criteria").put("Other Criteria", new
+              JSONObject(res));
+        }
       } else if (key.equals("textblock") || key.equals("description")) {
         String text = jsonObj.getString(key);
         text = text.replace("≦", "<=");

@@ -44,7 +44,7 @@ public class GraphBuilder implements AutoCloseable {
   private final Driver driver;
   private String docId = null;
   
-  private static int uid = 0;
+  private static int uid = 401767;
   
   /**
    * Constructor
@@ -118,11 +118,14 @@ public class GraphBuilder implements AutoCloseable {
         textblock = this.replaceIllegalChars(textblock);
         int sepIndex = textblock.indexOf("Exclusion Criteria");
         int inclIdx = textblock.indexOf("Inclusion Criteria");
+        /* Check at leaset one criteria exists */
         if(inclIdx == -1 && sepIndex == -1) {
           this.DFS(criteria, key, annot, null);
           continue;
         }
+        annot.put("criteria", new JSONObject());
         
+        /* Check and create Inclusion Criteria section */
         if(inclIdx != -1 && textblock.indexOf(':') + 2 < textblock.length()) {
           String inclCri = null;
           if(sepIndex == -1)
@@ -135,13 +138,13 @@ public class GraphBuilder implements AutoCloseable {
           if(results == null) throw new JSONException("Fail to get CoreNLP"
               + " response");
 
-          annot.put("criteria", new JSONObject());
           annot.getJSONObject("criteria").put("Inclusion Criteria", new
               JSONObject(results));
 
           this.buildAllGraph(document, "Inclusion Criteria", secIdx);
         }
         
+        /* Check and create Exclusion Criteria section */
         if(sepIndex == -1) continue;
         
         String exclCri = textblock.substring(sepIndex);
@@ -157,6 +160,21 @@ public class GraphBuilder implements AutoCloseable {
         annot.getJSONObject("criteria").put("Exclusion Criteria", new
             JSONObject(results));
         this.buildAllGraph(document, "Exclusion Criteria", secIdx);
+        
+        /* Check other criteria (not a very good solution) */
+        if(inclIdx != 0) {
+          String otherCri = textblock.substring(0, inclIdx);
+          Annotation doc = new Annotation(otherCri);
+          this.pipeline.annotate(doc);
+          String res = JSONOutputter.jsonPrint(document);
+          
+          if(res == null) throw new JSONException("Fail to get CoreNLP "
+              + "response");
+          
+          annot.getJSONObject("criteria").put("Other Criteria", new
+              JSONObject(res));
+          this.buildAllGraph(document, "Other Criteria", secIdx);
+        }
       } else if (key.equals("textblock") || key.equals("description")) {
         String text = jsonObj.getString(key);
         text = this.replaceIllegalChars(text);
