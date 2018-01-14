@@ -130,8 +130,16 @@ public class OntologyBuilder {
             JSONArray(results));
         
         /* Check other criteria (not a very good solution) */
-        if(inclIdx != 0) {
-          String otherCri = textblock.substring(0, inclIdx);
+        int otherIdx = 0;
+        if(inclIdx > 0 && sepIndex == -1)
+          otherIdx = inclIdx;
+        else if(sepIndex > 0 && inclIdx == -1)
+          otherIdx = sepIndex;
+        else
+          otherIdx = inclIdx < sepIndex ? inclIdx : sepIndex;
+        
+        if(otherIdx != 0) {
+          String otherCri = textblock.substring(0, otherIdx);
           String res = null;
           if(otherCri.length() > MAX_LENGTH) {
             res = this.overLimitRequest(otherCri);
