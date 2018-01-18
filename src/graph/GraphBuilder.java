@@ -242,6 +242,7 @@ public class GraphBuilder implements AutoCloseable {
     text = text.replace("³", "^3");
     text = text.replace("²", "^2");
     text = text.replace("- ", "\n\n");
+    text = text.replace("㎡", "m^2");
     return text.trim();
   }
   
