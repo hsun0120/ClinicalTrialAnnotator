@@ -43,11 +43,15 @@ public class OntologyBuilder {
 
 	  this.DFS(xmlJSONObj, null);
 
+	  /* Output converted json file */
 	  try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
 			  FileOutputStream(outputName)))) {
 		  writer.write(xmlJSONObj.toString());
 	  }
 
+	  this.annot.put("nct_id", xmlJSONObj.getJSONObject("clinical_study")
+	      .getJSONObject("id_info").getString("nct_id"));
+	  /* Output annotated json file */
 	  try(BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new 
 			  FileOutputStream("annotated_" + outputName)))) {
 		  writer.write(this.annot.toString());
