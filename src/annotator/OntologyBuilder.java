@@ -78,14 +78,7 @@ public class OntologyBuilder {
       if(key.equals("criteria")) {
         JSONObject criteria = jsonObj.getJSONObject(key);
         String textblock = criteria.getString("textblock");
-        textblock = textblock.replace("≦", "<=");
-        textblock = textblock.replace("≤", "<=");
-        textblock = textblock.replace("≧", ">=");
-        textblock = textblock.replace("≥", ">=");
-        textblock = textblock.replace("®", "(R)");
-        textblock = textblock.replace("³", "^3");
-        textblock = textblock.replace("²", "^2");
-        textblock = textblock.replace("- ", "\n\n");
+        textblock = this.replaceIllegalChars(textblock);
         int sepIndex = textblock.indexOf("Exclusion Criteria");
         int inclIdx = textblock.indexOf("Inclusion Criteria");
         
@@ -99,9 +92,10 @@ public class OntologyBuilder {
         if(inclIdx != -1) {
           String inclCri = null;
           if(sepIndex == -1)
-            inclCri = textblock.substring(textblock.indexOf(':') + 2);
+            inclCri = textblock.substring(textblock.indexOf(':') + 2).trim();
           else
-            inclCri = textblock.substring(textblock.indexOf(':') + 2, sepIndex);
+            inclCri = textblock.substring(textblock.indexOf(':') + 2, sepIndex)
+            .trim();
         String results = null;
         if(inclCri.length() > MAX_LENGTH) {
           results = this.overLimitRequest(inclCri);
@@ -117,7 +111,7 @@ public class OntologyBuilder {
         if(sepIndex == -1) continue;
         
         String exclCri = textblock.substring(sepIndex);
-        exclCri = exclCri.substring(exclCri.indexOf(':') + 2);
+        exclCri = exclCri.substring(exclCri.indexOf(':') + 2).trim();
         String results = null;
         if(exclCri.length() > MAX_LENGTH) {
           results = this.overLimitRequest(exclCri);
@@ -139,7 +133,7 @@ public class OntologyBuilder {
           otherIdx = inclIdx < sepIndex ? inclIdx : sepIndex;
         
         if(otherIdx != 0) {
-          String otherCri = textblock.substring(0, otherIdx);
+          String otherCri = textblock.substring(0, otherIdx).trim();
           String res = null;
           if(otherCri.length() > MAX_LENGTH) {
             res = this.overLimitRequest(otherCri);
@@ -153,14 +147,7 @@ public class OntologyBuilder {
         }
       } else if (key.equals("textblock") || key.equals("description")) {
         String text = jsonObj.getString(key);
-        text = text.replace("≦", "<=");
-        text = text.replace("≤", "<=");
-        text = text.replace("≧", ">=");
-        text = text.replace("≥", ">=");
-        text = text.replace("®", "(R)");
-        text = text.replace("³", "^3");
-        text = text.replace("²", "^2");
-        text = text.replace("- ", "\n\n");
+        text = this.replaceIllegalChars(text);
         String results = null;
         if(text.length() > MAX_LENGTH)
           results = this.overLimitRequest(text);
@@ -216,6 +203,18 @@ public class OntologyBuilder {
       }
     }
     return response.toString();
+  }
+  
+  private String replaceIllegalChars (String text) {
+	  text = text.replace("≦", "<=");
+      text = text.replace("≤", "<=");
+      text = text.replace("≧", ">=");
+      text = text.replace("≥", ">=");
+      text = text.replace("®", "(R)");
+      text = text.replace("³", "^3");
+      text = text.replace("²", "^2");
+      text = text.replace("- ", "\n ");
+      return text.trim();
   }
   
   public static void main(String args[]) {

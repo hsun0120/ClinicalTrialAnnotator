@@ -129,9 +129,10 @@ public class GraphBuilder implements AutoCloseable {
         if(inclIdx != -1 && textblock.indexOf(':') + 2 < textblock.length()) {
           String inclCri = null;
           if(sepIndex == -1)
-            inclCri = textblock.substring(textblock.indexOf(':') + 2);
+            inclCri = textblock.substring(textblock.indexOf(':') + 2).trim();
           else
-            inclCri = textblock.substring(textblock.indexOf(':') + 2, sepIndex);
+            inclCri = textblock.substring(textblock.indexOf(':') + 2, 
+            		sepIndex).trim();
           Annotation document = new Annotation(inclCri);
           this.pipeline.annotate(document);
           String results = JSONOutputter.jsonPrint(document);
@@ -149,7 +150,7 @@ public class GraphBuilder implements AutoCloseable {
         
         String exclCri = textblock.substring(sepIndex);
         if(exclCri.indexOf(':') + 2 > exclCri.length()) continue;
-        exclCri = exclCri.substring(exclCri.indexOf(':') + 2);
+        exclCri = exclCri.substring(exclCri.indexOf(':') + 2).trim();
         Annotation document = new Annotation(exclCri);
         this.pipeline.annotate(document);
         String results = JSONOutputter.jsonPrint(document);
@@ -171,7 +172,7 @@ public class GraphBuilder implements AutoCloseable {
           otherIdx = inclIdx < sepIndex ? inclIdx : sepIndex;
         
         if(otherIdx > 0) {
-          String otherCri = textblock.substring(0, otherIdx);
+          String otherCri = textblock.substring(0, otherIdx).trim();
           Annotation doc = new Annotation(otherCri);
           this.pipeline.annotate(doc);
           String res = JSONOutputter.jsonPrint(document);
@@ -241,7 +242,7 @@ public class GraphBuilder implements AutoCloseable {
     text = text.replace("³", "^3");
     text = text.replace("²", "^2");
     text = text.replace("- ", "\n\n");
-    return text;
+    return text.trim();
   }
   
   private void buildTree(Tree root, List<CoreLabel> map, int index, String
