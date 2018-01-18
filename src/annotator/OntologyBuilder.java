@@ -2,6 +2,7 @@ package annotator;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -223,9 +224,14 @@ public class OntologyBuilder {
   }
   
   public static void main(String args[]) {
-    OntologyBuilder builder = new OntologyBuilder(args[0], args[1], args[2]);
+    OntologyBuilder builder;
     try {
-      builder.build(args[3], args[4]);
+    	File dir = new File("xml");
+    	for(final File file : dir.listFiles()) {
+    		builder = new OntologyBuilder(args[0], args[1], args[2]);
+    		builder.build(file.getPath(), file.getName().substring(0,
+    				file.getName().indexOf('.')) + ".json");
+    	}
     } catch (JSONException | IOException e) {
       e.printStackTrace();
     }
