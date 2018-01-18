@@ -94,7 +94,7 @@ public class OntologyBuilder {
         
         this.annot.put("criteria", new JSONObject());
         
-        if(inclIdx != -1) {
+        if(inclIdx != -1 && textblock.indexOf(':') + 2 < textblock.length()) {
           String inclCri = null;
           if(sepIndex == -1)
             inclCri = textblock.substring(textblock.indexOf(':') + 2).trim();
@@ -116,6 +116,7 @@ public class OntologyBuilder {
         if(sepIndex == -1) continue;
         
         String exclCri = textblock.substring(sepIndex);
+        if(exclCri.indexOf(':') + 2 > exclCri.length()) continue;
         exclCri = exclCri.substring(exclCri.indexOf(':') + 2).trim();
         String results = null;
         if(exclCri.length() > MAX_LENGTH) {
@@ -148,7 +149,7 @@ public class OntologyBuilder {
               + "response");
           
           this.annot.getJSONObject("criteria").put("Other Criteria", new
-              JSONObject(res));
+              JSONArray(res));
         }
       } else if (key.equals("textblock") || key.equals("description")) {
         String text = jsonObj.getString(key);
@@ -180,7 +181,7 @@ public class OntologyBuilder {
   private String overLimitRequest(String text) {
     StringBuilder response = new StringBuilder(MAX_LENGTH);
     StringBuilder sb = new StringBuilder();
-    String[] sentences = text.split("(?<=\\. ) | (?<=; )");
+    String[] sentences = text.split("(?<=\\. )");
     for(int i = 0; i < sentences.length; i++) {
       if(sb.length() + sentences[i].length() <= MAX_LENGTH)
         sb.append(sentences[i]);
@@ -220,6 +221,20 @@ public class OntologyBuilder {
       text = text.replace("²", "^2");
       text = text.replace("- ", "\n ");
       text = text.replace("㎡", "m^2");
+      text = text.replace("•", "-");
+      text = text.replace("–", "-");
+      text = text.replace("μ", "u");
+      text = text.replace("µ", "u");
+      text = text.replace("’", "'");
+      text = text.replace("½", ".5");
+      text = text.replace("—", "-");
+      text = text.replace("ü", "u");
+      text = text.replace("°", "degree ");
+      text = text.replace("×", "x");
+      text = text.replace("ﬁ", "fi");
+      text = text.replace("ï", "i");
+      text = text.replace("ή", "eta");
+      text = text.replace("Ε", "E");
       return text.trim();
   }
   
