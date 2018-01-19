@@ -1,5 +1,7 @@
 package annotator;
 
+import utils.replace_UTF8;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -212,29 +214,12 @@ public class OntologyBuilder {
   }
   
   private String replaceIllegalChars (String text) {
-	  text = text.replace("≦", "<=");
-      text = text.replace("≤", "<=");
-      text = text.replace("≧", ">=");
-      text = text.replace("≥", ">=");
-      text = text.replace("®", "(R)");
-      text = text.replace("³", "^3");
-      text = text.replace("²", "^2");
+	  try {
+		text = replace_UTF8.ReplaceLooklike(text);
+	} catch (IOException e) {
+		e.printStackTrace();
+	}
       text = text.replace("- ", "\n ");
-      text = text.replace("㎡", "m^2");
-      text = text.replace("•", "-");
-      text = text.replace("–", "-");
-      text = text.replace("μ", "u");
-      text = text.replace("µ", "u");
-      text = text.replace("’", "'");
-      text = text.replace("½", ".5");
-      text = text.replace("—", "-");
-      text = text.replace("ü", "u");
-      text = text.replace("°", "degree ");
-      text = text.replace("×", "x");
-      text = text.replace("ﬁ", "fi");
-      text = text.replace("ï", "i");
-      text = text.replace("ή", "eta");
-      text = text.replace("Ε", "E");
       return text.trim();
   }
   
