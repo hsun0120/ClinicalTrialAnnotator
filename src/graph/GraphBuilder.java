@@ -48,7 +48,7 @@ public class GraphBuilder implements AutoCloseable {
 	private final Driver driver;
 	private String docId = null;
 
-	private static int uid = 630303;
+	private static int uid = 0;
 
 	/**
 	 * Constructor
