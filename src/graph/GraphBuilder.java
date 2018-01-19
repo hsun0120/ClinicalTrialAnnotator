@@ -38,6 +38,7 @@ import edu.stanford.nlp.trees.Tree;
 import edu.stanford.nlp.trees.TreeCoreAnnotations.TreeAnnotation;
 import edu.stanford.nlp.util.CoreMap;
 import edu.stanford.nlp.util.PropertiesUtils;
+import utils.replace_UTF8;
 
 public class GraphBuilder implements AutoCloseable {
   private StanfordCoreNLP pipeline;
@@ -234,16 +235,13 @@ public class GraphBuilder implements AutoCloseable {
   }
   
   private String replaceIllegalChars(String text) {
-    text = text.replace("≦", "<=");
-    text = text.replace("≤", "<=");
-    text = text.replace("≧", ">=");
-    text = text.replace("≥", ">=");
-    text = text.replace("®", "(R)");
-    text = text.replace("³", "^3");
-    text = text.replace("²", "^2");
-    text = text.replace("- ", "\n\n");
-    text = text.replace("㎡", "m^2");
-    return text.trim();
+	  try {
+		  text = replace_UTF8.ReplaceLooklike(text);
+	  } catch (IOException e) {
+		  e.printStackTrace();
+	  }
+	  text = text.replace("- ", "\n\n");
+	  return text.trim();
   }
   
   private void buildTree(Tree root, List<CoreLabel> map, int index, String

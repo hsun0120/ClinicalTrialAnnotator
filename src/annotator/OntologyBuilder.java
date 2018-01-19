@@ -32,6 +32,8 @@ public class OntologyBuilder {
   private String opts;
   private JSONObject annot = new JSONObject();
   
+  private boolean overLimit = false;
+  
   public OntologyBuilder(String username, String password, String email) {
     this.request = new MetaMap(username, password, email);
     this.opts = this.request.config("2017AA", "USAbase", null, null, null,
@@ -59,6 +61,10 @@ public class OntologyBuilder {
 			  FileOutputStream("annotated_" + outputName)))) {
 		  writer.write(this.annot.toString());
 	  }
+	  
+	  if(this.overLimit)
+		  System.out.println(xmlJSONObj.getJSONObject("clinical_study")
+	      .getJSONObject("id_info").getString("nct_id"));
   }
   
   private String loadXML(String filename) {
@@ -181,6 +187,7 @@ public class OntologyBuilder {
   }
   
   private String overLimitRequest(String text) {
+	this.overLimit = true;
     StringBuilder response = new StringBuilder(MAX_LENGTH);
     StringBuilder sb = new StringBuilder();
     String[] sentences = text.split("(?<=\\. )");
@@ -215,12 +222,12 @@ public class OntologyBuilder {
   
   private String replaceIllegalChars (String text) {
 	  try {
-		text = replace_UTF8.ReplaceLooklike(text);
-	} catch (IOException e) {
-		e.printStackTrace();
-	}
-      text = text.replace("- ", "\n ");
-      return text.trim();
+		  text = replace_UTF8.ReplaceLooklike(text);
+	  } catch (IOException e) {
+		  e.printStackTrace();
+	  }
+	  text = text.replace("- ", "\n ");
+	  return text.trim();
   }
   
   public static void main(String args[]) {
