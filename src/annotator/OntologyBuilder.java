@@ -226,6 +226,7 @@ public class OntologyBuilder {
 		  text = text.replace("≦", "<=");
 		  text = text.replace("≧", ">=");
 		  text = text.replace("㎡", "m2");
+		  text = text.replace("ï", "i");
 	  } catch (IOException e) {
 		  e.printStackTrace();
 	  }
