@@ -190,13 +190,13 @@ public class OntologyBuilder {
 	this.overLimit = true;
     StringBuilder response = new StringBuilder(MAX_LENGTH);
     StringBuilder sb = new StringBuilder();
-    String[] sentences = text.split("(?<=\\. )");
+    String[] sentences = text.split("((?<=\\.)|(?<=;))");
     for(int i = 0; i < sentences.length; i++) {
       if(sb.length() + sentences[i].length() <= MAX_LENGTH)
         sb.append(sentences[i]);
       else {
-        String result = this.request.getResults(sb.toString(), this.opts,
-            false);
+        String result = this.request.getResults(sb.toString().trim(), 
+        		this.opts, false);
         if(result == null) return null;
         sb = new StringBuilder(BUF_SIZE);
         if(response.length() == 0 && result.length() > 0)
@@ -207,7 +207,7 @@ public class OntologyBuilder {
       }
       
       if(i == sentences.length - 1) {
-        String lastResponse = this.request.getResults(sb.toString(),
+        String lastResponse = this.request.getResults(sb.toString().trim(),
             this.opts, false);
         if(lastResponse == null) return null;
         if(lastResponse.length() > 0) {
@@ -223,9 +223,12 @@ public class OntologyBuilder {
   private String replaceIllegalChars (String text) {
 	  try {
 		  text = replace_UTF8.ReplaceLooklike(text);
+		  text = text.replace("≦", "<=");
+		  text = text.replace("≧", ">=");
 	  } catch (IOException e) {
 		  e.printStackTrace();
 	  }
+	  text = text.replace(" - ", "\n ");
 	  text = text.replace("- ", "\n ");
 	  return text.trim();
   }
@@ -233,7 +236,7 @@ public class OntologyBuilder {
   public static void main(String args[]) {
     OntologyBuilder builder;
     try {
-    	File dir = new File("xml");
+    	File dir = new File("sample");
     	for(final File file : dir.listFiles()) {
     		builder = new OntologyBuilder(args[0], args[1], args[2]);
     		builder.build(file.getPath(), file.getName().substring(0,
