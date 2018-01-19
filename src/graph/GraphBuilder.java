@@ -448,7 +448,7 @@ public class GraphBuilder implements AutoCloseable {
 	public static void main(String args[]) {
 		try (GraphBuilder builder = new GraphBuilder("bolt://localhost:7687",
 				"neo4j", "sdsc123")){
-			File dir = new File("sample");
+			File dir = new File("xml");
 			for(final File file : dir.listFiles())
 				builder.build(file.getPath(), file.getName() + ".json");
 		} catch (Exception e) {

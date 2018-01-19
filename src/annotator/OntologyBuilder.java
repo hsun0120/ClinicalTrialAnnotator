@@ -236,7 +236,7 @@ public class OntologyBuilder {
   public static void main(String args[]) {
     OntologyBuilder builder;
     try {
-    	File dir = new File("sample");
+    	File dir = new File("xml");
     	for(final File file : dir.listFiles()) {
     		builder = new OntologyBuilder(args[0], args[1], args[2]);
     		builder.build(file.getPath(), file.getName().substring(0,
