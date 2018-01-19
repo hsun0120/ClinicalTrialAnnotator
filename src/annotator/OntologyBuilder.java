@@ -225,6 +225,7 @@ public class OntologyBuilder {
 		  text = replace_UTF8.ReplaceLooklike(text);
 		  text = text.replace("≦", "<=");
 		  text = text.replace("≧", ">=");
+		  text = text.replace("㎡", "m2");
 	  } catch (IOException e) {
 		  e.printStackTrace();
 	  }
