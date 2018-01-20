@@ -267,6 +267,7 @@ public class GraphBuilder implements AutoCloseable {
 		  text = text.replace("※", "-");
 		  text = text.replace("㎲", " microseconds");
 		  text = text.replace("́s", "'s");
+		  text = text.replace("╳", "x");
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

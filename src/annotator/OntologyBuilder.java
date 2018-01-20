@@ -232,6 +232,7 @@ public class OntologyBuilder {
 		  text = text.replace("※", "-");
 		  text = text.replace("㎲", " microseconds");
 		  text = text.replace("́s", "'s");
+		  text = text.replace("╳", "x");
 	  } catch (IOException e) {
 		  e.printStackTrace();
 	  }
