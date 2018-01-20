@@ -227,6 +227,7 @@ public class OntologyBuilder {
 		  text = text.replace("≧", ">=");
 		  text = text.replace("㎡", "m2");
 		  text = text.replace("ï", "i");
+		  text = text.replace("˄", "^");
 	  } catch (IOException e) {
 		  e.printStackTrace();
 	  }
