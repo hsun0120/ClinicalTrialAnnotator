@@ -231,6 +231,7 @@ public class OntologyBuilder {
 		  text = text.replace("˚", " degrees");
 		  text = text.replace("※", "-");
 		  text = text.replace("㎲", " microseconds");
+		  text = text.replace("́s", "'s");
 	  } catch (IOException e) {
 		  e.printStackTrace();
 	  }
