@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Scanner;
 
@@ -35,6 +36,7 @@ public class PhraseExtractor {
 				for(int index = 0; index < sentences.length(); index++) {
 					JSONObject sentenceAnnot = sentences.getJSONObject(index);
 					JSONArray phrases = sentenceAnnot.getJSONArray("Phrases");
+					HashSet<String> set = new HashSet<>();
 					for(int idx = 0; idx < phrases.length(); idx++) {
 						JSONArray mappings = phrases.getJSONObject(idx).getJSONArray("Mappings");
 						for(int i = 0; i < mappings.length(); i++) {
@@ -42,7 +44,8 @@ public class PhraseExtractor {
 									("MappingCandidates");
 							for(int j = 0; j < candidates.length(); j++) {
 								JSONObject candidate = candidates.getJSONObject(j);
-								if(this.findSemType(candidate.getJSONArray("SemTypes"), type)) {
+								if(this.findSemType(candidate.getJSONArray("SemTypes"), type) 
+										&& set.add(candidate.getString("CandidatePreferred"))) {
 									String[] tmp = new String[5];
 									tmp[0] = json.getString("nct_id");
 									if(json.getJSONObject(section).length() > 1)
@@ -73,11 +76,11 @@ public class PhraseExtractor {
 		File dir = new File(args[0]);
 		String[] header = {"nct_id", "section", "UttText", "CandidateMatched",
 				"CandidatePreferred"};
-		CSVWriter writer = new CSVWriter(new FileWriter("comd.csv"));
+		CSVWriter writer = new CSVWriter(new FileWriter("gngm.csv"));
 		writer.writeNext(header);
 		for(final File file : dir.listFiles())
 			try(Scanner sc = new Scanner(new FileReader(file.getPath()))) {
-				pe.extractBySemType(sc.nextLine(), "comd", writer);
+				pe.extractBySemType(sc.nextLine(), "gngm", writer);
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
 			}
