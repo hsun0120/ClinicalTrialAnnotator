@@ -71,7 +71,8 @@ public class PostgreSQLQuery {
   	File dir = new File(args[0]);
 		for(final File file : dir.listFiles()) {
 			try(Scanner sc = new Scanner(new FileReader(file.getPath()))) {
-				pg.query(conn, "INSERT INTO ctdata (info) VALUES('" + sc.nextLine() + "');");
+				pg.query(conn, "INSERT INTO ctdata (info) VALUES('" + sc.nextLine().
+						replace("'", "''") + "');");
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
 			}
