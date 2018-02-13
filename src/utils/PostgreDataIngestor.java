@@ -19,12 +19,11 @@ import org.json.JSONObject;
 /**
  * A class that imports json data into postgres database.
  * @author Haoran Sun
- * @since 03/27/2017
+ * @since 02/05/2018
  */
 public class PostgreDataIngestor {
   static final String DRIVER = "org.postgresql.Driver";
   static final String PREFIX = "jdbc:postgresql://";
-  static final int SIZE = 200;
   
   private static final Logger logger =
       Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
@@ -107,16 +106,17 @@ public class PostgreDataIngestor {
    * Import json data to postgres
    * @param conn - connection to postgres database
    * @param jsonStr - json format string
+   * @param table - table name
    */
-  public void ingestData(Connection conn, String jsonStr) {
+  public void ingestData(Connection conn, String jsonStr, String table) {
   	ArrayList<JsonNode> columns = this.jsonSplit(jsonStr);
   	String insertion = "INSERT INTO ctdata (";
   	String values = "VALUES (";
   	for(int i = 0; i < columns.size(); i++) {
   		JsonNode node = columns.get(i);
   		if(this.cols.add(node.getKey())) //Add new column
-  			this.query(conn, "ALTER TABLE ctdata ADD COLUMN " + node.getKey() +
-  					" jsonb");
+  			this.query(conn, "ALTER TABLE " + table + " ADD COLUMN " +
+  					node.getKey() + " jsonb");
   		insertion += node.getKey();
   		values += ("'" + node.getJsonStr().replace("'", "''") + "'");
   		if(i == columns.size() - 1) {
@@ -163,7 +163,7 @@ public class PostgreDataIngestor {
   	File dir = new File(args[0]);
 		for(final File file : dir.listFiles()) {
 			try(Scanner sc = new Scanner(new FileReader(file.getPath()))) {
-				pg.ingestData(conn, sc.nextLine());
+				pg.ingestData(conn, sc.nextLine(), "ctdata");
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
 			}
