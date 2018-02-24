@@ -74,6 +74,7 @@ public class PostgreDataIngestorOriginal {
       st.executeUpdate(queryString); //Get query result
     } catch (SQLException e) {
       logger.severe("Failed to get resultSet!");
+      System.err.println(queryString);
     }
   }
   
