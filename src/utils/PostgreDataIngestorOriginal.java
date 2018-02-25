@@ -1,6 +1,7 @@
 package utils;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.sql.Connection;
@@ -8,8 +9,9 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.logging.Logger;
@@ -29,13 +31,13 @@ public class PostgreDataIngestorOriginal {
   private static final Logger logger =
       Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
   
-  private HashSet<String> cols;
+  private HashMap<String, String> cols;
   
   /**
    * Default constructor
    */
   public PostgreDataIngestorOriginal() {
-  	this.cols = new HashSet<>();
+  	this.cols = new HashMap<>();
   }
   
   /**
@@ -79,6 +81,56 @@ public class PostgreDataIngestorOriginal {
   }
   
   /**
+   * Perform type check on all entries present in the set of json files, if the
+   * type of fields conflict, make the field type jsonb.
+   * @param dir - the directory that contains all json files.
+   * @param name - data base name.
+   * @return A query string that used to create the table with proper field
+   * types.
+   */
+  public String typeCheck(String dir, String name) {
+  	File directory = new File(dir);
+		for(final File file : directory.listFiles()) {
+			try(Scanner sc = new Scanner(new FileReader(file.getPath()))) {
+				JSONObject jsonObj = new JSONObject(sc.nextLine()).
+		  			getJSONObject("clinical_study");
+				Iterator<String> it = jsonObj.keys();
+		  	while(it.hasNext()) {
+		  		String key = it.next();
+		  		if(jsonObj.get(key) instanceof JSONObject) {
+		  			JSONObject field = jsonObj.getJSONObject(key);
+		  			if(field.has("textblock") || field.has("description")) {
+		  				if(!this.cols.containsKey(key))
+		  					this.cols.put(key, "text");
+		  			} else
+		  				this.cols.put(key, "jsonb");
+		  		}
+		  		else if(jsonObj.get(key) instanceof JSONArray)
+		  			this.cols.put(key, "jsonb");
+		  		else if(!this.cols.containsKey(key))
+		  			this.cols.put(key, "text");
+		  	}
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("CREATE TABLE IF NOT EXISTS ");
+		sb.append(name + '(');
+		Iterator<Entry<String, String>> it = this.cols.entrySet().iterator();
+		while(it.hasNext()) {
+			Entry<String, String> entry = it.next();
+			sb.append(entry.getKey() + " " + entry.getValue());
+			if(it.hasNext())
+				sb.append(", ");
+			else
+				sb.append(")");
+		}
+		return sb.toString();
+  }
+  
+  /**
    * Split a json text by first level key
    * @param jsonText - a json format string
    * @return a list of split fields
@@ -93,18 +145,16 @@ public class PostgreDataIngestorOriginal {
   		if(jsonObj.get(key) instanceof JSONObject) {
   			JSONObject field = jsonObj.getJSONObject(key);
   			if(field.has("textblock"))
-  				ret.add(new JsonNode(key, field.getString("textblock"), true));
+  				ret.add(new JsonNode(key, field.getString("textblock")));
   			else if (field.has("description"))
-  				ret.add(new JsonNode(key, field.getString("description"), true));
+  				ret.add(new JsonNode(key, field.getString("description")));
   			else
-  				ret.add(new JsonNode(key, jsonObj.getJSONObject(key).toString(),
-  						false));
+  				ret.add(new JsonNode(key, jsonObj.getJSONObject(key).toString()));
   		}
   		else if(jsonObj.get(key) instanceof JSONArray)
-  			ret.add(new JsonNode(key, jsonObj.getJSONArray(key).toString(),
-  					false));
+  			ret.add(new JsonNode(key, jsonObj.getJSONArray(key).toString()));
   		else
-  			ret.add(new JsonNode(key, jsonObj.getString(key), true));
+  			ret.add(new JsonNode(key, jsonObj.getString(key)));
   	}
   	return ret;
   }
@@ -122,15 +172,14 @@ public class PostgreDataIngestorOriginal {
   	String values = "VALUES (";
   	for(int i = 0; i < columns.size(); i++) {
   		JsonNode node = columns.get(i);
-  		if(this.cols.add(node.getKey())) //Add new column
-  			if(node.isString())
-  				this.query(conn, "ALTER TABLE " + table + " ADD COLUMN " +
-  						node.getKey() + " text");
-  			else
-  				this.query(conn, "ALTER TABLE " + table + " ADD COLUMN " +
-  						node.getKey() + " jsonb");
   		insertion += node.getKey();
   		String tmp = this.replaceIllegalChars(node.getJsonStr());
+  		if(this.cols.get(node.getKey()).equals("jsonb") && !tmp.startsWith("[")
+  				&& !tmp.startsWith("{")) {
+  			tmp = tmp.replace("\"", "\\\"");
+  			tmp = tmp.replace("'", "");
+  			tmp = "[\"" + tmp + "\"]";
+  		}
   		values += ("'" + tmp.replace("'", "''") + "'");
   		if(i == columns.size() - 1) {
   			insertion += ")";
@@ -170,15 +219,13 @@ public class PostgreDataIngestorOriginal {
   protected class JsonNode {
   	private String key;
   	private String jsonStr;
-  	private boolean isString;
   	
-  	public JsonNode(String key, String jsonStr, boolean isString) {
+  	public JsonNode(String key, String jsonStr) {
   		if(key.equals("group")) //Handle reserved word in postgres
   			this.key = "\"group\"";
   		else
   			this.key = key;
   		this.jsonStr = jsonStr;
-  		this.isString = isString;
   	}
   	
   	public String getKey() {
@@ -188,16 +235,12 @@ public class PostgreDataIngestorOriginal {
   	public String getJsonStr() {
   		return this.jsonStr;
   	}
-  	
-  	public boolean isString() {
-  		return this.isString;
-  	}
   }
   
   public static void main(String[] args) {
   	PostgreDataIngestorOriginal pg = new PostgreDataIngestorOriginal();
-  	Connection conn = pg.getConn("localhost:5432/postgres", "postgres", "sdsc123");
-  	pg.query(conn, "CREATE TABLE IF NOT EXISTS orignctdata ()");
+  	Connection conn = pg.getConn("10.128.37.10:5432/postgres", "postgres", "something");
+  	pg.query(conn, pg.typeCheck(args[0], "orignctdata"));
   	File dir = new File(args[0]);
 		for(final File file : dir.listFiles()) {
 			try(Scanner sc = new Scanner(new FileReader(file.getPath()))) {
